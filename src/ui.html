@@ -133,7 +133,7 @@ tr.dim td{color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:14px}
 .field>span{font-weight:500}
 .field small{color:var(--muted)}
-.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--surface2);width:100%}
+.field input[type=text],.field input[type=password],.field input[type=number],.field input[type=date],.field select,.field textarea{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--surface2);width:100%}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .row .field{flex:1 1 140px}
 .wd{display:flex;flex-wrap:wrap;gap:6px}
@@ -158,6 +158,12 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .dropall{position:fixed;inset:0;background:rgba(30,92,138,.12);border:3px dashed var(--accent);display:none;place-items:center;z-index:40;font-size:20px;font-weight:600;color:var(--accent)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .loading{padding:60px;text-align:center;color:var(--muted)}
+.lock{max-width:440px;margin:8vh auto 0}
+.lock>h1{font-size:20px;margin:0 0 14px}
+.lock form{margin-bottom:14px}
+.lock details{font-size:13.5px;color:var(--muted)}
+.lock details p{margin:8px 0}
+.lkErr{color:var(--bad);font-size:13.5px;min-height:1.2em;margin:0 0 10px}
 @media (max-width:640px){.pnav{width:100%;justify-content:space-between}.pnav .lbl{min-width:0;flex:1}.metrics{grid-template-columns:1fr 1fr}.m .v{font-size:20px}}
 @media (prefers-reduced-motion:no-preference){.tile .fill{transition:height .35s ease}}
 </style>
@@ -188,9 +194,14 @@ const HM=TD.fmtHM, HMS=TD.fmtHMS;
 
 /* ---------------- state & storage ---------------- */
 let S=TD.defaultState(), mode='loading', db=null, ref=null, uid=null, localPending=null;
+// Password lock (standalone site): `lock` holds the AES key in memory only; `lockRaw` is the encrypted envelope waiting to be opened.
+let lock=null, lockRaw=null, pendingPlain=null, lockBusy=false;
 const ui={key:null,asOf:null,tab:'days',filter:'all',sel:null,uploads:[],showTable:false};
 function readLocal(){try{const r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):null}catch(e){return null}}
-function writeLocal(st){try{localStorage.setItem(LS_KEY,JSON.stringify(st));return true}catch(e){return false}}
+async function writeLocal(st){if(!lock)return false;try{const env=await TD.sealJSON(st,lock);localStorage.setItem(LS_KEY,JSON.stringify(env));return true}catch(e){return false}}
+function startLocal(){const raw=readLocal();
+  if(TD.isEncrypted(raw)){lockRaw=raw;mode='locked';return}
+  pendingPlain=raw?migrateShape(raw):null;mode='setup';}
 function migrateShape(x){const d=TD.defaultState();if(!x||typeof x!=='object'||!x.days)return null;
   return Object.assign(d,x,{settings:Object.assign(d.settings,x.settings||{}),summaries:x.summaries||[],batches:x.batches||[]});}
 async function boot(){
@@ -207,8 +218,8 @@ async function boot(){
       if(snap.exists){S=migrateShape(JSON.parse(JSON.stringify(snap.data())))||TD.defaultState();}
       else{const loc=readLocal(); if(loc&&Object.keys(loc.days||{}).length) localPending=migrateShape(loc);}
       mode='account';
-    }catch(e){mode='local';const loc=readLocal();if(loc)S=migrateShape(loc)||S;}
-  }else{mode='local';const loc=readLocal();if(loc)S=migrateShape(loc)||S;}
+    }catch(e){startLocal();}
+  }else{startLocal();}
   render();
   window.addEventListener('focus',refreshRemote);
 }
@@ -229,13 +240,68 @@ async function save(next,msg){
       const remoteRev=cur.exists?(cur.data().rev||0):0;
       if(remoteRev!==(S.rev||0)){S=migrateShape(JSON.parse(JSON.stringify(cur.data())));render();toast('This ledger changed in another tab. Your change was not saved; review and try again.');return false;}
       await ref.set(JSON.parse(JSON.stringify(next)));
-    }else if(!writeLocal(next)){toast('This browser blocked saving. Your change is only kept until you close the page.');}
+    }else if(!(await writeLocal(next))){toast('This browser blocked saving. Your change is only kept until you close the page.');}
     S=next; render(); if(msg)toast(msg); return true;
   }catch(e){toast('Not saved: '+(e&&e.message?e.message:'the store refused the write')+'. Nothing was changed.');return false}
   finally{saving=false}
 }
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',5200)}
 const meta=()=>({at:new Date().toISOString(),by:'you'});
+
+/* ---------------- password lock ---------------- */
+function lockScreen(){
+  if(mode==='locked')return `<div class="lock"><h1>Payroll time ledger</h1>
+  <form id="lkForm" class="card" autocomplete="on"><h2>Enter your password</h2><p class="lead">Your hours are saved encrypted in this browser.</p>
+   <input type="text" name="username" value="Payroll time ledger" autocomplete="username" hidden>
+   <label class="field"><span>Password</span><input type="password" id="lkPw" autocomplete="current-password" required></label>
+   <p class="lkErr" id="lkErr" role="alert"></p>
+   <button class="btn primary" type="submit" id="lkGo">Unlock</button></form>
+  <details><summary>Forgot your password?</summary>
+   <p>It can't be recovered or reset, and the saved hours can't be opened without it. You can erase the locked data in this browser and start again, then restore a backup or upload your Time Doctor exports again.</p>
+   <label class="check"><input type="checkbox" id="lkWipe"> Erase the locked data in this browser</label>
+   <p><button class="btn" type="button" data-act="lkReset">Erase and start over</button></p></details></div>`;
+  const n=pendingPlain?Object.keys(pendingPlain.days||{}).length:0;
+  return `<div class="lock"><h1>Payroll time ledger</h1>
+  <form id="lkForm" class="card" autocomplete="on"><h2>Set a password</h2><p class="lead">Your hours will be saved encrypted in this browser. You'll enter this password each time you open the page.</p>
+   ${n?`<p class="callout">${n} date${n===1?'':'s'} already saved in this browser will be encrypted with this password.</p>`:''}
+   <input type="text" name="username" value="Payroll time ledger" autocomplete="username" hidden>
+   <label class="field"><span>Password</span><input type="password" id="lkPw" autocomplete="new-password" minlength="${TD.MIN_PASSWORD}" required><small>At least ${TD.MIN_PASSWORD} characters.</small></label>
+   <label class="field"><span>Repeat password</span><input type="password" id="lkPw2" autocomplete="new-password" required></label>
+   <p class="callout bad">A forgotten password can't be recovered. Without it the saved hours can't be opened, so keep a backup.</p>
+   <p class="lkErr" id="lkErr" role="alert"></p>
+   <button class="btn primary" type="submit" id="lkGo">Set password and continue</button></form></div>`;
+}
+function lkErr(m){const e=$('#lkErr');if(e)e.textContent=m||''}
+async function submitLock(){
+  if(lockBusy)return; const pw=$('#lkPw').value, go=$('#lkGo'), label=go.textContent;
+  if(mode==='setup'){const m=TD.passwordProblem(pw,$('#lkPw2').value);if(m){lkErr(m);return}}
+  lockBusy=true;go.disabled=true;go.textContent=mode==='locked'?'Unlocking…':'Encrypting…';lkErr('');
+  try{
+    if(mode==='locked'){
+      const r=await TD.openJSON(lockRaw,pw);lock=r.lock;S=migrateShape(r.data)||TD.defaultState();lockRaw=null;mode='local';render();
+    }else{
+      lock=await TD.newLock(pw);const st=pendingPlain||TD.defaultState();
+      if(!(await writeLocal(st))){lock=null;lkErr('This browser blocked saving, so no password was set. Check that site data is allowed and try again.');return}
+      S=st;pendingPlain=null;mode='local';render();toast('Password set. Your data is now encrypted in this browser.');
+    }
+  }catch(e){lkErr(e&&e.code==='WRONG_PASSWORD'?'That password is not right.':(e&&e.message)||'Could not unlock.');const f=$('#lkPw');if(f){f.select();f.focus()}}
+  finally{lockBusy=false;if(document.body.contains(go)){go.disabled=false;go.textContent=label}}
+}
+function lockNow(){
+  for(const id of ['#dlgUp','#dlgDay'])if($(id).open)$(id).close();
+  const raw=readLocal();lock=null;S=TD.defaultState();ui.uploads=[];ui.sel=null;
+  if(TD.isEncrypted(raw)){lockRaw=raw;mode='locked'}else{pendingPlain=null;mode='setup'}
+  render();
+}
+async function changePassword(){
+  const cur=$('#sPwCur').value,pw=$('#sPw').value,pw2=$('#sPw2').value;
+  const m=TD.passwordProblem(pw,pw2);if(m){toast(m);return}
+  try{await TD.openJSON(readLocal(),cur)}catch(e){toast(e&&e.code==='WRONG_PASSWORD'?'The current password is not right.':'Could not check the current password.');return}
+  const old=lock;lock=await TD.newLock(pw);
+  if(!(await writeLocal(S))){lock=old;toast('This browser blocked saving. The password was not changed.');return}
+  render();toast('Password changed. Backups you exported earlier still open with the old password.');
+}
+document.addEventListener('submit',async e=>{if(e.target.id==='lkForm'){e.preventDefault();await submitLock()}});
 
 /* ---------------- calc ---------------- */
 function today(){return TD.todayIn(S.settings.tz)}
@@ -247,6 +313,7 @@ function pLabel(P){return `${MONL[P.month-1]} ${P.year}`}
 function render(){
   const app=$('#app');
   if(mode==='loading'){app.innerHTML='<div class="loading">Loading your ledger…</div>';return}
+  if(mode==='locked'||mode==='setup'){app.innerHTML=lockScreen();const f=$('#lkPw');if(f)f.focus();return}
   const c=calc(); const P=c.P;
   const has=Object.keys(S.days).length>0||S.summaries.length>0;
   app.innerHTML=`
@@ -258,8 +325,9 @@ function render(){
       <button class="btn icon" data-act="next" aria-label="Next period">›</button>
       ${curKey()!==TD.periodKeyFor(today())?'<button class="btn small" data-act="current">Current</button>':''}
     </nav>
-    <div class="store" title="${mode==='account'?'Saved privately to your Claude account. Only you can read it, on any device where you open this page.':'Saved in this browser only. Clearing site data or using another device will not show these entries.'}">
-      <span class="dot ${mode==='account'?'ok':'warn'}"></span>${mode==='account'?'Private to your account':'This browser only'}</div>
+    <div class="store" title="${mode==='account'?'Saved privately to your Claude account. Only you can read it, on any device where you open this page.':'Saved encrypted in this browser only, behind your password. Clearing site data or using another device will not show these entries.'}">
+      <span class="dot ${mode==='account'?'ok':'warn'}"></span>${mode==='account'?'Private to your account':'This browser only, encrypted'}</div>
+    ${mode==='local'&&lock?'<button class="btn" data-act="lockNow" title="Hide your data until the password is entered again">Lock</button>':''}
     <button class="btn" data-act="leave">Add approved day off</button>
     <button class="btn primary" data-act="upload">Upload Time Doctor exports</button>
   </header>
@@ -557,9 +625,13 @@ function settingsTab(c){
    <p><button class="btn primary" data-act="savePolicy">Save policy rules</button></p>
    <h3>Versions</h3><ul class="note" style="padding-inline-start:18px;margin:0">${S.settings.policies.slice().sort((a,b)=>a.from<b.from?1:-1).map(v=>`<li>From ${v.from==='2000-01-01'?'the start':fd(v.from,true)}: ${v.shortfallMethod==='daily'?'day by day':'monthly total'}, idle ${v.idlePct}%</li>`).join('')}</ul></section>
   <section class="card"><h2>Data</h2>
-   <p class="note">${mode==='account'?'Saved privately to your Claude account. Nobody else who opens this page can read it, including if you share the link.':'Saved in this browser only. Another browser or device will not see these entries. Export a backup to move them.'}</p>
-   <div class="row" style="gap:8px"><button class="btn" data-act="exportCsv">Export ${esc(pLabel(P))} as CSV</button><button class="btn" data-act="exportJson">Export full backup</button><button class="btn" data-act="upload">Restore from backup</button></div>
-   <p class="note">The CSV includes the period, cutoff, time zone, rule version and coverage. Restoring a backup asks for confirmation first.</p>
+   <p class="note">${mode==='account'?'Saved privately to your Claude account. Nobody else who opens this page can read it, including if you share the link.':'Saved encrypted in this browser only, behind your password. Another browser or device will not see these entries. Export a backup to move them.'}</p>
+   <div class="row" style="gap:8px"><button class="btn" data-act="exportCsv">Export ${esc(pLabel(P))} as CSV</button><button class="btn" data-act="exportJson">Export full backup${lock?' (encrypted)':''}</button>${lock?'<button class="btn" data-act="exportPlain">Export unencrypted backup</button>':''}<button class="btn" data-act="upload">Restore from backup</button></div>
+   <p class="note">The CSV includes the period, cutoff, time zone, rule version and coverage. Restoring a backup asks for confirmation first.${lock?' The encrypted backup opens with your current password. The CSV and the unencrypted backup can be read by anyone who has the file; use the unencrypted one only to move your data into the Claude version.':''}</p>
+   ${lock?`<h3>Password</h3><p class="note">Your saved hours are encrypted with this password. It can't be recovered if you forget it.</p>
+   <label class="field"><span>Current password</span><input type="password" id="sPwCur" autocomplete="current-password"></label>
+   <div class="row"><label class="field"><span>New password</span><input type="password" id="sPw" autocomplete="new-password" minlength="${TD.MIN_PASSWORD}"></label><label class="field"><span>Repeat new password</span><input type="password" id="sPw2" autocomplete="new-password"></label></div>
+   <p><button class="btn" data-act="changePw">Change password</button></p>`:''}
    <h3>Remove everything</h3><p class="note">Deletes all days, reports and history in this ledger.</p>
    <label class="check"><input type="checkbox" id="sWipe"> I understand this cannot be undone</label><p><button class="btn" data-act="wipe">Delete all data</button></p></section></div>`;
 }
@@ -627,7 +699,11 @@ async function addFiles(list){
   for(const f of list){
     if(f.size>2*1024*1024){ui.uploads.push({name:f.name,fatal:`${f.name} is ${(f.size/1048576).toFixed(1)} MB. The limit is 2 MB per file.`});continue}
     const text=await f.text();
-    if(/\.json$/i.test(f.name)||/^\s*\{/.test(text)){let parsed=null;try{parsed=migrateShape(JSON.parse(text))}catch(e){}
+    if(/\.json$/i.test(f.name)||/^\s*\{/.test(text)){let obj=null,parsed=null;try{obj=JSON.parse(text)}catch(e){}
+      if(TD.isEncrypted(obj)){const u={name:f.name,sealed:obj,confirms:{},ready:false};
+        if(lock){try{u.backup=migrateShape(await TD.openWithLock(obj,lock))}catch(e){}}
+        ui.uploads.push(u);evalReady(u);continue}
+      try{parsed=obj?migrateShape(obj):null}catch(e){}
       ui.uploads.push(parsed?{name:f.name,backup:parsed,confirms:{},ready:false}:{name:f.name,fatal:`${f.name} is not a ledger backup.`});evalReady(ui.uploads[ui.uploads.length-1]);continue}
     const u={name:f.name,text,range:null,confirms:{},personInput:''};
     reparse(u); ui.uploads.push(u);
@@ -637,6 +713,7 @@ async function addFiles(list){
 function reparse(u){u.parsed=TD.parseReport(u.text,u.name,u.range);u.hash=TD.hashText(u.text);u.plan=(!u.parsed.errors.length&&!u.parsed.needRange&&u.parsed.kind)?TD.planImport(S,u.parsed,u.hash):null;evalReady(u)}
 function evalReady(u){
   if(u.fatal||u.applied){u.ready=false;return}
+  if(u.sealed&&!u.backup){u.ready=false;return}
   if(u.backup){u.ready=!!u.confirms.restore;return}
   const p=u.parsed,pl=u.plan; if(!p||p.errors.length||p.needRange||!pl){u.ready=false;return}
   if(pl.duplicate&&!pl.adds.length&&!pl.replaces.length&&p.kind!=='activity'){u.ready=false;return}
@@ -651,7 +728,9 @@ function evalReady(u){
 function previewCard(u,i){
   if(u.fatal)return `<div class="pv"><h3>${esc(u.name)}</h3><p class="callout bad" style="margin:0">${esc(u.fatal)}</p></div>`;
   if(u.applied)return `<div class="pv"><h3>${esc(u.name)}</h3><p class="callout good" style="margin:0">${esc(u.applied)}</p></div>`;
-  if(u.backup){const n=Object.keys(u.backup.days).length;return `<div class="pv"><h3>Backup: ${esc(u.name)}</h3><p class="note" style="margin:0">${n} dates, ${u.backup.summaries.length} activity summaries, ${u.backup.batches.length} history entries${u.backup.person?' for '+esc(u.backup.person):''}.</p>
+  if(u.sealed&&!u.backup)return `<div class="pv"><h3>Encrypted backup: ${esc(u.name)}</h3><p class="note" style="margin:0">This backup was saved with a different password. Enter the password that was in use when it was exported.</p>
+    <div class="row"><label class="field"><span>Backup password</span><input type="password" id="bpw${i}" autocomplete="off"></label><button class="btn" data-act="openBackup" data-i="${i}">Unlock backup</button></div>${u.err?`<p class="lkErr">${esc(u.err)}</p>`:''}</div>`;
+  if(u.backup){const n=Object.keys(u.backup.days).length;return `<div class="pv"><h3>${u.sealed?'Encrypted backup':'Backup'}: ${esc(u.name)}</h3><p class="note" style="margin:0">${n} dates, ${u.backup.summaries.length} activity summaries, ${u.backup.batches.length} history entries${u.backup.person?' for '+esc(u.backup.person):''}.</p>
     <label class="check"><input type="checkbox" data-i="${i}" data-confirm="restore" ${u.confirms.restore?'checked':''}> Replace everything in this ledger with this backup</label></div>`}
   const p=u.parsed,pl=u.plan; const kindName={hours:'Hours Tracked (Totals)',activity:'Activity Summary',normalized:'date,hours CSV'}[p.kind]||'Unrecognised file';
   let h=`<div class="pv"><h3>${esc(kindName)}</h3><p class="note" style="margin:0">${esc(u.name)}${p.range?` · ${fd(p.range.start,true)} – ${fd(p.range.end,true)}${u.range?' (entered by you)':''}`:''}${pl?` · ${pl.periods.map(k=>pLabel(TD.periodByKey(k))).join(' and ')} payroll period${pl.periods.length>1?'s':''}`:''}</p>`;
@@ -760,7 +839,15 @@ document.addEventListener('click',async e=>{
     const n=JSON.parse(JSON.stringify(S));n.settings.policies=n.settings.policies.filter(v=>v.from!==from);n.settings.policies.push({from,idlePct:pct,shortfallMethod:m,partialLeave:true});
     n.batches.unshift({id:'p'+Date.now(),type:'settings',file:'HR policy rules',at:meta().at,by:'you',range:{start:from,end:from},detail:`${m==='daily'?'Day by day':'Monthly total'}, idle ${pct}%`,undone:false});await save(n,'Policy rules saved.')}
   else if(a==='exportCsv'){const cc=c();await download(`payroll-${cc.P.key}-as-of-${cc.asOf}.csv`,TD.exportCSV(cc,S))}
-  else if(a==='exportJson'){await download(`payroll-ledger-backup-${today()}.json`,JSON.stringify(S,null,1))}
+  else if(a==='exportJson'){if(lock){let env;try{env=await TD.sealJSON(S,lock)}catch(err){toast('Could not encrypt the backup.');return}await download(`payroll-ledger-backup-${today()}.encrypted.json`,JSON.stringify(env,null,1))}
+    else await download(`payroll-ledger-backup-${today()}.json`,JSON.stringify(S,null,1))}
+  else if(a==='exportPlain'){await download(`payroll-ledger-backup-${today()}.json`,JSON.stringify(S,null,1))}
+  else if(a==='lockNow'){lockNow()}
+  else if(a==='changePw'){await changePassword()}
+  else if(a==='lkReset'){if(!$('#lkWipe').checked){lkErr('Tick the box first to confirm erasing the locked data.');return}try{localStorage.removeItem(LS_KEY)}catch(err){}lockRaw=null;pendingPlain=null;mode='setup';render();toast('The locked data was erased. Set a new password to start again.')}
+  else if(a==='openBackup'){const i=+b.dataset.i,u=ui.uploads[i];b.disabled=true;
+    try{u.backup=migrateShape((await TD.openJSON(u.sealed,$('#bpw'+i).value)).data);u.err=u.backup?null:'This file is not a ledger backup.'}catch(err){u.err=err&&err.code==='WRONG_PASSWORD'?'That password is not right for this backup.':(err&&err.message)||'Could not open this backup.'}
+    evalReady(u);renderUpload()}
   else if(a==='wipe'){if(!$('#sWipe').checked){toast('Tick the confirmation box first.');return}await save(TD.defaultState(),'All data deleted.')}
   else if(a==='migrate'){const n=localPending;localPending=null;if(await save(n,'Moved to your account.'))try{localStorage.removeItem(LS_KEY)}catch(err){}}
   else if(a==='dismissMigrate'){localPending=null;render()}
@@ -772,11 +859,12 @@ document.addEventListener('change',async e=>{
   if(e.target.id==='fileIn'){await addFiles(e.target.files);e.target.value='';if(!$('#dlgUp').open)openUpload()}
 });
 let dragN=0;
-window.addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')&&!$('#dlgUp').open){dragN++;$('#dropall').style.display='grid'}});
+const unlocked=()=>mode==='local'||mode==='account';
+window.addEventListener('dragenter',e=>{if(unlocked()&&e.dataTransfer&&[...e.dataTransfer.types].includes('Files')&&!$('#dlgUp').open){dragN++;$('#dropall').style.display='grid'}});
 window.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('#dropall').style.display='none'});
 window.addEventListener('dragover',e=>e.preventDefault());
-window.addEventListener('drop',async e=>{e.preventDefault();dragN=0;$('#dropall').style.display='none';if($('#dlgUp').open)return;if(e.dataTransfer.files.length){await addFiles(e.dataTransfer.files);openUpload()}});
-let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(mode!=='loading')bindChart(calc())},150)});
+window.addEventListener('drop',async e=>{e.preventDefault();dragN=0;$('#dropall').style.display='none';if($('#dlgUp').open||!unlocked())return;if(e.dataTransfer.files.length){await addFiles(e.dataTransfer.files);openUpload()}});
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(mode==='local'||mode==='account')bindChart(calc())},150)});
 $('#dlgDay').addEventListener('close',()=>{ui.sel=null;render()});
 boot();
 })();

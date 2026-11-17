@@ -583,8 +583,61 @@
     return out.map(r => r.map(csvCell).join(',')).join('\r\n');
   }
 
+  /* ---------- password lock: encrypts the ledger saved in this browser ----------
+     PBKDF2-SHA256 turns the password into an AES-256-GCM key. Only the encrypted
+     envelope is ever written to storage; the key lives in memory until the page locks. */
+  const ENC_FORMAT = 'ptl-enc-v1';
+  const ENC_ITER = 310000;
+  const MIN_PASSWORD = 8;
+  const webCrypto = () => {
+    const c = (root && root.crypto) || globalThis.crypto;
+    if (!c || !c.subtle) throw new Error('This browser cannot encrypt data. Open the page over https in an up-to-date browser.');
+    return c;
+  };
+  const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const fromB64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
+  const wrongPassword = () => { const e = new Error('Wrong password.'); e.code = 'WRONG_PASSWORD'; return e; };
+  function isEncrypted(x) {
+    return !!x && typeof x === 'object' && x.format === ENC_FORMAT && typeof x.salt === 'string' && typeof x.iv === 'string' && typeof x.ct === 'string';
+  }
+  function passwordProblem(pw, again) {
+    if (typeof pw !== 'string' || pw.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters.`;
+    if (again !== undefined && pw !== again) return 'The two passwords do not match.';
+    return null;
+  }
+  async function deriveKey(password, salt, iter) {
+    const c = webCrypto();
+    const base = await c.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+    return c.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function newLock(password, iter = ENC_ITER) {
+    const salt = webCrypto().getRandomValues(new Uint8Array(16));
+    return { key: await deriveKey(password, salt, iter), salt, iter };
+  }
+  async function sealJSON(obj, lock) {
+    const c = webCrypto(); const iv = c.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await c.subtle.encrypt({ name: 'AES-GCM', iv }, lock.key, new TextEncoder().encode(JSON.stringify(obj))));
+    return { format: ENC_FORMAT, kdf: 'PBKDF2-SHA256', iter: lock.iter, salt: toB64(lock.salt), iv: toB64(iv), ct: toB64(ct) };
+  }
+  async function openWithLock(env, lock) {
+    if (!isEncrypted(env)) throw new Error('This is not an encrypted ledger.');
+    let pt;
+    try { pt = await webCrypto().subtle.decrypt({ name: 'AES-GCM', iv: fromB64(env.iv) }, lock.key, fromB64(env.ct)); }
+    catch (e) { throw wrongPassword(); }
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  async function openJSON(env, password) {
+    if (!isEncrypted(env)) throw new Error('This is not an encrypted ledger.');
+    const iter = env.iter;
+    if (!Number.isInteger(iter) || iter < 1000 || iter > 5000000) throw new Error('This encrypted ledger has unsupported settings.');
+    let salt; try { salt = fromB64(env.salt); } catch (e) { throw new Error('This encrypted ledger is damaged.'); }
+    const lock = { key: await deriveKey(password, salt, iter), salt, iter };
+    return { data: await openWithLock(env, lock), lock };
+  }
+
   const api = { DAY_SEC, LEAVE_DAY_SEC, iso, isValidISO, addDays, weekday, dateRange, todayIn, periodByKey, periodKeyFor, periodFor, shiftPeriod,
     LEAVE_UNITS, leaveFrac, parseDuration, fmtHM, fmtHMS, fmtDays, defaultState, versionFor, requiredSec, computePeriod, idleMath, reconcile, parseCSV, detect,
-    rangeFromName, resolveDate, EG_HOLIDAYS, HOLIDAY_SETS, holidayList, holidayFor, planLeave, applyLeave, undoLeave, parseReport, hashText, planImport, applyImport, undoBatch, applyManual, undoManual, exportCSV, csvCell };
+    rangeFromName, resolveDate, EG_HOLIDAYS, HOLIDAY_SETS, holidayList, holidayFor, planLeave, applyLeave, undoLeave, parseReport, hashText, planImport, applyImport, undoBatch, applyManual, undoManual, exportCSV, csvCell,
+    ENC_FORMAT, MIN_PASSWORD, isEncrypted, passwordProblem, newLock, sealJSON, openWithLock, openJSON };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.TD = api;
 })(typeof window !== 'undefined' ? window : globalThis);
