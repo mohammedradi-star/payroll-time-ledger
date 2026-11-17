@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payroll time ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F7;--surface:#FFFFFF;--surface2:#F7F8FA;--ink:#162033;--muted:#566176;--line:#D9DEE6;
+  --accent:#1E5C8A;--accent-ink:#FFFFFF;--accent-soft:#E3EEF6;
+  --sand:#B87A12;--sand-soft:#FBF1DE;--good:#21754F;--good-soft:#E2F2EA;--bad:#B03B25;--bad-soft:#FBE7E2;
+  --rest:#E7EAEF;--focus:#1E5C8A;
+  --font:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F141D;--surface:#161D29;--surface2:#1B2331;--ink:#E6EBF2;--muted:#9AA5B7;--line:#2B3546;
+  --accent:#6EA6D6;--accent-ink:#0F141D;--accent-soft:#1C3347;--sand:#E3AA4C;--sand-soft:#3A2E17;
+  --good:#5BBE8E;--good-soft:#173528;--bad:#EE7B63;--bad-soft:#3D1F19;--rest:#222B3A;--focus:#8DBCE6;color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0F141D;--surface:#161D29;--surface2:#1B2331;--ink:#E6EBF2;--muted:#9AA5B7;--line:#2B3546;
+  --accent:#6EA6D6;--accent-ink:#0F141D;--accent-soft:#1C3347;--sand:#E3AA4C;--sand-soft:#3A2E17;
+  --good:#5BBE8E;--good-soft:#173528;--bad:#EE7B63;--bad-soft:#3D1F19;--rest:#222B3A;--focus:#8DBCE6;color-scheme:dark;}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+a{color:var(--accent)}
+.wrap{max-width:1240px;margin:0 auto;padding:20px clamp(14px,3vw,32px) 64px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:14px}
+.brand{flex:1 1 220px;min-width:0}
+.brand h1{font-size:15px;font-weight:600;margin:0}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.pnav{display:flex;align-items:center;gap:6px}
+.pnav .lbl{min-width:190px;text-align:center}
+.pnav .lbl b{display:block;font-size:17px;font-weight:600;line-height:1.2}
+.pnav .lbl span{font-size:13px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;line-height:1.3}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.icon{width:36px;height:36px;padding:0;display:inline-grid;place-items:center;font-size:18px}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--accent);padding:4px 6px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.store{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.ok{background:var(--good)}.dot.warn{background:var(--sand)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:22px;font-size:14px}
+.bar label{display:flex;align-items:center;gap:8px}
+.bar input[type=date]{border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--surface2)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:500;background:var(--rest);white-space:nowrap}
+.pill.open{background:var(--accent-soft);color:var(--accent)}.pill.closed{background:var(--rest)}.pill.upcoming{background:var(--sand-soft);color:var(--sand)}
+.pill.good{background:var(--good-soft);color:var(--good)}.pill.bad{background:var(--bad-soft);color:var(--bad)}.pill.warn{background:var(--sand-soft);color:var(--sand)}
+.spacer{flex:1}
+/* hero */
+.hero{margin:6px 0 18px}
+.headline{font-size:clamp(22px,2.6vw,32px);line-height:1.25;font-weight:500;letter-spacing:-.01em;margin:0 0 6px;max-width:38ch}
+.headline .n{font-weight:700}
+.sub{color:var(--muted);margin:0 0 18px;max-width:75ch}
+.ribbon{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(26px,1fr);gap:3px;overflow-x:auto;padding-bottom:6px}
+.tile{display:flex;flex-direction:column;align-items:stretch;gap:3px;border:0;background:none;padding:0;cursor:pointer;min-width:26px}
+.tile .col{position:relative;height:96px;border-radius:5px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.tile .fill{position:absolute;inset:auto 0 0 0;background:var(--accent)}
+.tile .req{position:absolute;left:0;right:0;border-top:2px dashed var(--muted);opacity:.55}
+.tile.rest .col{background:var(--rest);border-color:transparent}
+.tile.rest .fill,.tile.off .fill{background:var(--muted)}
+.tile.short .fill{background:var(--sand)}
+.tile.zero .col{background:var(--bad-soft);border-color:var(--bad)}
+.tile.missing .col{border:1.5px dashed var(--bad);background:repeating-linear-gradient(135deg,transparent 0 5px,var(--bad-soft) 5px 9px)}
+.tile.future .col{background:var(--surface2);border-style:dashed}
+.tile.today .col{border:2px solid var(--accent)}
+.tile.sel .col{box-shadow:0 0 0 2px var(--focus)}
+.tile.hol .col,.tile.lv .col{background:repeating-linear-gradient(45deg,var(--accent-soft) 0 6px,var(--surface) 6px 10px);border-color:var(--accent)}
+.tile.need .col{border:2px solid var(--sand)}.tile.need .d b{color:var(--sand)}
+.tile .mk{position:absolute;top:3px;left:0;right:0;text-align:center;font-size:10.5px;font-weight:700;color:var(--accent)}
+.offgrid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.7fr);gap:14px}@media (max-width:900px){.offgrid{grid-template-columns:1fr}}
+.hl{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center}
+.tile .d{font-size:11px;text-align:center;color:var(--muted);line-height:1.1}
+.tile .d b{display:block;color:var(--ink);font-weight:500;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-inline-end:6px;vertical-align:-2px}
+/* metrics */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:22px 0}
+.m{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.m.forecast{border-style:dashed;background:var(--surface2)}
+.m .k{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.m .v{font-size:24px;font-weight:600;line-height:1.25}
+.m .x{font-size:12.5px;color:var(--muted)}
+.m details{margin-top:4px;font-size:12.5px;color:var(--muted)}
+.m summary{cursor:pointer;color:var(--accent);width:max-content}
+.tag{font-size:11.5px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted);height:max-content}
+.tag.fc{border-style:dashed}
+/* sections */
+.grid2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:22px}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.card h2{font-size:16px;margin:0 0 4px;font-weight:600}
+.card h3{font-size:14px;margin:14px 0 4px;font-weight:600}
+.card .lead{color:var(--muted);font-size:13.5px;margin:0 0 10px}
+.attn{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.attn li{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:8px 10px;border-radius:8px;background:var(--surface2)}
+.attn .b{flex:none;margin-top:1px}
+.attn li div{flex:1;min-width:0}
+.chartbox{position:relative}
+.chartbox svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12.5px;padding:7px 9px;border-radius:7px;white-space:nowrap;z-index:5;display:none;line-height:1.45}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{border:0;background:none;padding:9px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;cursor:pointer;font-size:13px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:12.5px;background:var(--surface2);position:sticky;top:0}
+td.num,th.num{text-align:end}
+tr:last-child td{border-bottom:0}
+tr.dim td{color:var(--muted)}
+.linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;padding:0;font-weight:500;text-decoration:underline;text-underline-offset:2px}
+.kv{display:grid;grid-template-columns:auto auto;gap:4px 18px;font-size:14px;width:max-content;max-width:100%}
+.kv dt{color:var(--muted)}.kv dd{margin:0;text-align:end;font-weight:500}
+.big{font-size:28px;font-weight:600;line-height:1.2}
+.note{font-size:13px;color:var(--muted)}
+.callout{border-inline-start:3px solid var(--sand);background:var(--sand-soft);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13.5px;margin:10px 0}
+.callout.bad{border-color:var(--bad);background:var(--bad-soft)}.callout.good{border-color:var(--good);background:var(--good-soft)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:14px}
+.field>span{font-weight:500}
+.field small{color:var(--muted)}
+.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--surface2);width:100%}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.row .field{flex:1 1 140px}
+.wd{display:flex;flex-wrap:wrap;gap:6px}
+.wd label{border:1px solid var(--line);border-radius:7px;padding:4px 9px;display:flex;gap:6px;align-items:center;cursor:pointer}
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--ink);width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+.dlg{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.dlg header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.dlg header h2{margin:0;font-size:18px}
+.dlg footer{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;background:var(--surface2)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.pv{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.pv h3{margin:0;font-size:15px}
+.errs{margin:0;padding-inline-start:18px;font-size:13px;color:var(--bad);max-height:160px;overflow:auto}
+.warns{margin:0;padding-inline-start:18px;font-size:13px;color:var(--muted);max-height:120px;overflow:auto}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.check input{margin-top:3px}
+.toast{position:fixed;inset-inline:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:auto;width:max-content;max-width:calc(100vw - 24px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;display:none}
+.empty{padding:28px;text-align:center;border:1px dashed var(--line);border-radius:12px;background:var(--surface)}
+.empty h2{margin:0 0 6px}
+.dropall{position:fixed;inset:0;background:rgba(30,92,138,.12);border:3px dashed var(--accent);display:none;place-items:center;z-index:40;font-size:20px;font-weight:600;color:var(--accent)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.loading{padding:60px;text-align:center;color:var(--muted)}
+@media (max-width:640px){.pnav{width:100%;justify-content:space-between}.pnav .lbl{min-width:0;flex:1}.metrics{grid-template-columns:1fr 1fr}.m .v{font-size:20px}}
+@media (prefers-reduced-motion:no-preference){.tile .fill{transition:height .35s ease}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">Loading your ledger…</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="dropall" id="dropall">Drop Time Doctor exports to preview them</div>
+<input type="file" id="fileIn" accept=".csv,.json,text/csv,application/json" multiple hidden>
+<dialog id="dlgUp" aria-labelledby="upT"></dialog>
+<dialog id="dlgDay" aria-labelledby="dayT"></dialog>
+<script>
+/*CORE*/
+</script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=v=>String(v===null||v===undefined?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS_KEY='twerlo-td-ledger-v1';
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONL=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WDS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WDL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const fd=(d,y)=>{const[Y,M,D]=d.split('-').map(Number);return `${MON[M-1]} ${D}${y?', '+Y:''}`};
+const fdw=d=>`${WDS[TD.weekday(d)]}, ${fd(d)}`;
+const HM=TD.fmtHM, HMS=TD.fmtHMS;
+
+/* ---------------- state & storage ---------------- */
+let S=TD.defaultState(), mode='loading', db=null, ref=null, uid=null, localPending=null;
+const ui={key:null,asOf:null,tab:'days',filter:'all',sel:null,uploads:[],showTable:false};
+function readLocal(){try{const r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):null}catch(e){return null}}
+function writeLocal(st){try{localStorage.setItem(LS_KEY,JSON.stringify(st));return true}catch(e){return false}}
+function migrateShape(x){const d=TD.defaultState();if(!x||typeof x!=='object'||!x.days)return null;
+  return Object.assign(d,x,{settings:Object.assign(d.settings,x.settings||{}),summaries:x.summaries||[],batches:x.batches||[]});}
+async function boot(){
+  render();
+  try{
+    if(window.claude&&typeof window.claude.use==='function'){
+      const timeout=new Promise(r=>setTimeout(()=>r(null),10000));
+      const [d,u]=await Promise.all([Promise.race([window.claude.use('db'),timeout]),Promise.race([window.claude.use('user'),timeout])]);
+      if(d&&u){uid=await u.id(); if(uid){db=d; ref=db.doc('data/users/'+uid+'/ledger');}}
+    }
+  }catch(e){db=null;ref=null}
+  if(ref){
+    try{const snap=await ref.get();
+      if(snap.exists){S=migrateShape(JSON.parse(JSON.stringify(snap.data())))||TD.defaultState();}
+      else{const loc=readLocal(); if(loc&&Object.keys(loc.days||{}).length) localPending=migrateShape(loc);}
+      mode='account';
+    }catch(e){mode='local';const loc=readLocal();if(loc)S=migrateShape(loc)||S;}
+  }else{mode='local';const loc=readLocal();if(loc)S=migrateShape(loc)||S;}
+  render();
+  window.addEventListener('focus',refreshRemote);
+}
+async function refreshRemote(){
+  if(mode!=='account'||!ref)return;
+  try{const snap=await ref.get();if(snap.exists){const r=snap.data();if((r.rev||0)>(S.rev||0)){S=migrateShape(JSON.parse(JSON.stringify(r)));render();toast('Updated with changes from another tab or device.');}}}catch(e){}
+}
+let saving=false;
+async function save(next,msg){
+  if(saving){toast('Still saving the previous change. Try again in a moment.');return false;}
+  saving=true;
+  try{
+    next.rev=(S.rev||0)+1;
+    const size=JSON.stringify(next).length;
+    if(size>240000){toast('The ledger is close to its storage limit. Export a backup and remove old import history.');}
+    if(mode==='account'){
+      const cur=await ref.get();
+      const remoteRev=cur.exists?(cur.data().rev||0):0;
+      if(remoteRev!==(S.rev||0)){S=migrateShape(JSON.parse(JSON.stringify(cur.data())));render();toast('This ledger changed in another tab. Your change was not saved; review and try again.');return false;}
+      await ref.set(JSON.parse(JSON.stringify(next)));
+    }else if(!writeLocal(next)){toast('This browser blocked saving. Your change is only kept until you close the page.');}
+    S=next; render(); if(msg)toast(msg); return true;
+  }catch(e){toast('Not saved: '+(e&&e.message?e.message:'the store refused the write')+'. Nothing was changed.');return false}
+  finally{saving=false}
+}
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',5200)}
+const meta=()=>({at:new Date().toISOString(),by:'you'});
+
+/* ---------------- calc ---------------- */
+function today(){return TD.todayIn(S.settings.tz)}
+function curKey(){return ui.key||TD.periodKeyFor(today())}
+function calc(){return TD.computePeriod(S,curKey(),ui.asOf,today())}
+function pLabel(P){return `${MONL[P.month-1]} ${P.year}`}
+
+/* ---------------- render ---------------- */
+function render(){
+  const app=$('#app');
+  if(mode==='loading'){app.innerHTML='<div class="loading">Loading your ledger…</div>';return}
+  const c=calc(); const P=c.P;
+  const has=Object.keys(S.days).length>0||S.summaries.length>0;
+  app.innerHTML=`
+  <header class="top">
+    <div class="brand"><h1>Payroll time ledger</h1><p>${S.person?esc(S.person)+' · ':''}${esc(S.settings.tz)} · ${scheduleText(c.schedule)}</p></div>
+    <nav class="pnav" aria-label="Payroll period">
+      <button class="btn icon" data-act="prev" aria-label="Previous period">‹</button>
+      <div class="lbl" aria-live="polite"><b>${pLabel(P)}</b><span>${fd(P.start,true)} – ${fd(P.end,true)}</span></div>
+      <button class="btn icon" data-act="next" aria-label="Next period">›</button>
+      ${curKey()!==TD.periodKeyFor(today())?'<button class="btn small" data-act="current">Current</button>':''}
+    </nav>
+    <div class="store" title="${mode==='account'?'Saved privately to your Claude account. Only you can read it, on any device where you open this page.':'Saved in this browser only. Clearing site data or using another device will not show these entries.'}">
+      <span class="dot ${mode==='account'?'ok':'warn'}"></span>${mode==='account'?'Private to your account':'This browser only'}</div>
+    <button class="btn" data-act="leave">Add approved day off</button>
+    <button class="btn primary" data-act="upload">Upload Time Doctor exports</button>
+  </header>
+  ${localPending?`<div class="callout"><b>Entries from this browser were found.</b> ${Object.keys(localPending.days).length} dates saved before account storage was available. <button class="btn small" data-act="migrate">Move them to my account</button> <button class="btn ghost" data-act="dismissMigrate">Not now</button></div>`:''}
+  <div class="bar">
+    <span class="pill ${c.status}">${c.status==='open'?'In progress':c.status==='closed'?'Closed':'Upcoming'}</span>
+    <label>As of <input type="date" id="asof" value="${c.asOf}" min="${P.start}" max="${P.end}"></label>
+    <label><input type="checkbox" id="incToday" ${S.settings.includeToday?'checked':''} ${c.asOf===P.end&&today()>P.end?'disabled':''}> Count ${c.asOf===today()?'today':fd(c.asOf)} as a remaining workday</label>
+    <span class="spacer"></span>
+    <span class="note">${coverageText(c)}</span>
+  </div>
+  ${has?body(c):emptyState()}`;
+  bindChart(c);
+}
+function scheduleText(s){const d=s.workdays.slice().sort();const runs=d.length===5&&d.join()==='0,1,2,3,4'?'Sun–Thu':d.map(x=>WDS[x]).join(', ');return `${runs}, ${HM(s.dailySec)} a day`}
+function coverageText(c){
+  const lastRec=Object.keys(S.days).filter(d=>typeof S.days[d].t==='number'&&d>=c.P.start&&d<=c.P.end).sort().pop();
+  return lastRec?`Daily data through ${fd(lastRec)}`+(c.missing.length?` · ${c.missing.length} workday${c.missing.length>1?'s':''} missing`:''):'No daily data in this period yet';
+}
+function emptyState(){return `<div class="empty"><h2>Start with your Time Doctor exports</h2><p class="note" style="max-width:60ch;margin:0 auto 14px">Upload the Hours Tracked (Totals) report and the Activity Summary for this payroll period. You'll see a preview before anything is saved. You can also add a day by hand.</p>
+  <button class="btn primary" data-act="upload">Upload Time Doctor exports</button> <button class="btn" data-act="edit" data-date="${esc(ui.asOf||today())}">Add a day manually</button></div>`}
+
+function body(c){
+  const P=c.P, prov=c.projection&&c.projection.provisional;
+  return `
+  <section class="hero" aria-labelledby="hl">
+    <p class="headline" id="hl">${headline(c)}</p>
+    <p class="sub">${subline(c)}</p>
+    <div class="ribbon" role="list" aria-label="Days in this payroll period">${c.rows.map(r=>tile(r,c)).join('')}</div>
+    <div class="legend" aria-hidden="true"><span><i style="background:var(--accent)"></i>Met 8h</span><span><i style="background:var(--sand)"></i>Under 8h</span><span><i style="background:var(--muted)"></i>Weekend or day off</span><span><i style="border:1.5px dashed var(--bad)"></i>Missing data</span><span><i style="background:repeating-linear-gradient(45deg,var(--accent-soft) 0 3px,var(--surface) 3px 5px);border:1px solid var(--accent)"></i>H holiday · L approved leave</span><span><i style="border:2px solid var(--sand)"></i>Upcoming workday counted in "needed per day"</span><span><i style="border:1px dashed var(--muted);background:var(--surface2)"></i>Ahead</span><span>Dashed line: required hours</span></div>
+  </section>
+  <section class="metrics" aria-label="Period summary">
+    ${metric('Tracked',HM(c.tracked),`${HMS(c.tracked)} through ${fd(c.asOf)}`,`All validated time from ${fd(P.start)} to ${fd(c.asOf)}, weekends included.`,'all')}
+    ${metric(c.goalBasis==='target'?'Planning target':'Scheduled target',HM(c.goal),`${c.schedDays} workdays${c.leaveDays?` after ${c.leaveDays} day${c.leaveDays===1?'':'s'} of leave`:` × ${HM(c.schedule.dailySec)}`}${c.goalBasis==='target'?' (schedule '+HM(c.schedSec)+')':''}`,`${c.goalBasis==='target'?'Your personal planning target. HR shortfall still uses the schedule.':'Scheduled workdays in the period after holidays and approved leave.'}`,null)}
+    ${metric('To reach target',c.toGoal?HM(c.toGoal):'Done',c.toGoal?`${HMS(c.toGoal)} left`:'Target reached','Target minus tracked, never below zero.',null)}
+    ${metric('Workdays left',String(c.workdaysLeft),`${HM(c.schedLeft)} scheduled`,c.includeToday?'Includes today if it still has scheduled time remaining.':'Today is treated as finished.',null)}
+    ${metric('Needed per day',c.pace?HM(c.pace):'—',c.pace?leftShort(c):c.toGoal?'No workdays left':'Nothing more needed',
+      c.pace?`${HM(c.toGoal)} to target ÷ ${c.workdaysLeft} workday${c.workdaysLeft>1?'s':''} left = ${HM(c.pace)} each:<br>${c.leftDates.map(d=>`${fdw(d.date)}${d.today?` (today, ${HM(d.done)} tracked so far, so ${HM(Math.max(0,c.pace-d.done))} more)`:''}: ${HM(c.pace)}`).join('<br>')}`:`Hours to target ÷ workdays left${c.includeToday?' (today counted)':''}.`,c.pace?'left':null)}
+    ${c.final?metric('Final result',(c.final.variance>=0?'+':'')+HM(c.final.variance),c.final.variance>=0?'Over target':'Under target','Closed period: tracked minus target.',null):
+      metric('Projected finish',c.projection?HM(c.projection.finish):'—',c.projection?`${c.projection.variance>=0?HM(c.projection.variance)+' ahead':HM(-c.projection.variance)+' behind'}${prov?' · provisional':''}`:'Not enough completed days',
+      c.projection?`Tracked so far plus your average of ${HM(c.projection.avg)} per completed workday (${c.projection.basisDays} days, weekend hours included) × remaining workdays.${prov?' Missing days lower the average, so this is provisional.':''}`:'Shown after at least one scheduled workday is complete.',null,true)}
+  </section>
+  <div class="grid2">
+    <section class="card" aria-labelledby="trT"><h2 id="trT">Cumulative hours</h2><p class="lead">Tracked against the schedule, with the forecast to ${fd(P.end)}.</p>
+      <div class="chartbox" id="chart"></div>
+      <button class="btn ghost" data-act="toggleTable">${ui.showTable?'Hide values':'Show values as a table'}</button>
+      ${ui.showTable?chartTable(c):''}
+    </section>
+    <section class="card" aria-labelledby="atT"><h2 id="atT">Needs attention</h2>${attention(c)}</section>
+  </div>
+  <div class="tabs" role="tablist">
+    ${[['days','Days'],['off','Days off & holidays'],['hr','HR estimates'],['imports','Imports'],['settings','Settings']].map(([k,l])=>`<button class="tab" role="tab" aria-selected="${ui.tab===k}" data-tab="${k}">${l}</button>`).join('')}
+  </div>
+  <section role="tabpanel">${ui.tab==='days'?daysTab(c):ui.tab==='off'?offTab(c):ui.tab==='hr'?hrTab(c):ui.tab==='imports'?importsTab():settingsTab(c)}</section>`;
+}
+function headline(c){
+  if(c.status==='upcoming'&&!c.tracked)return `This period starts on <span class="n">${fd(c.P.start)}</span>. <span class="n">${HM(c.goal)}</span> scheduled over ${c.schedDays} workdays.`;
+  if(c.final)return `Period closed with <span class="n">${HM(c.tracked)}</span> of ${HM(c.goal)} tracked${c.toGoal?`, <span class="n">${HM(c.toGoal)}</span> short`:''}.`;
+  if(!c.toGoal)return `<span class="n">${HM(c.tracked)}</span> tracked. You've reached the ${HM(c.goal)} target.`;
+  return `<span class="n">${HM(c.tracked)}</span> of ${HM(c.goal)} tracked. <span class="n">${HM(c.toGoal)}</span> to go${c.workdaysLeft?` over ${c.workdaysLeft} workday${c.workdaysLeft>1?'s':''}`:''}.`;
+}
+function subline(c){
+  const bits=[];
+  if(c.pace)bits.push(`That's ${HM(c.pace)} on each remaining workday: ${c.leftDates.length<=5?c.leftDates.map(d=>d.today?'today':fdw(d.date)).join(', '):leftShort(c)}.`);
+  if(!c.workdaysLeft&&c.toGoal&&!c.final)bits.push('No scheduled workdays remain, so the gap cannot be closed on schedule.');
+  if(c.missing.length)bits.push(`${c.missing.length} completed workday${c.missing.length>1?'s have':' has'} no data yet, so estimates are provisional.`);
+  const sf=c.shortfall.primary; if(sf.sec>0||sf.high>0)bits.push(`Estimated HR shortfall so far: ${HM(sf.sec)} (${TD.fmtDays(sf.sec)} days)${sf.high>sf.sec?`, up to ${HM(sf.high)} if missing days stay empty`:''}.`);
+  return bits.join(' ')||'Select a day in the strip to see or edit its details.';
+}
+function tile(r,c){
+  const scale=Math.max(r.req,28800)*1.25; const h=r.t?Math.min(100,r.t/scale*100):0; const rq=r.req?100-r.req/scale*100:null;
+  const isLv=r.day&&(r.day.kind==='leave'||r.day.kind==='partial'),isHol=!isLv&&(r.hol||(r.day&&r.day.kind==='holiday'))&&TD.versionFor(S.settings.schedules,r.date).workdays.includes(r.wd);
+  const cls=(r.st==='met'?'met':r.st)+(isLv?' lv':isHol?' hol':'')+(c.pace&&c.leftDates.some(d=>d.date===r.date)?' need':'');
+  const need=c.pace&&c.leftDates.some(d=>d.date===r.date);
+  const label=`${fdw(r.date)}: ${need?'needs '+HM(c.pace)+' to stay on target, ':''}${r.t===null?'no data':HMS(r.t)+' tracked'}${r.req?', '+HM(r.req)+' required':', not a scheduled workday'}${dayTypeText(r)?', '+dayTypeText(r):''}. ${stText(r.st)}`;
+  return `<button class="tile ${cls} ${ui.sel===r.date?'sel':''}" role="listitem" data-act="edit" data-date="${r.date}" aria-label="${esc(label)}" title="${esc(label)}">
+    <span class="col"><span class="fill" style="height:${h}%"></span>${rq!==null?`<span class="req" style="top:${rq}%"></span>`:''}${isLv?'<span class="mk">L</span>':isHol?'<span class="mk">H</span>':''}</span>
+    <span class="d"><b>${+r.date.slice(8)}</b>${WDS[r.wd].slice(0,2)}</span></button>`;
+}
+function dayTypeText(r){const d=r.day||{};const lt=d.leaveType?d.leaveType:'Approved leave';
+  if(d.kind==='leave')return lt;if(d.kind==='partial')return lt+' ('+TD.leaveFrac(d)+' day, '+(d.leaveSec?HM(d.leaveSec):'')+')';if(d.kind==='holiday')return 'Holiday'+(d.reason?': '+d.reason:'');
+  if(r.hol)return 'Public holiday: '+r.hol.name+(r.hol.status==='expected'?' (expected)':'');return ''}
+function stText(s){return({met:'Met',short:'Under required hours',missing:'Missing data',zero:'Confirmed zero',off:'Worked on a day off',rest:'Day off',future:'Ahead',today:'In progress'})[s]||s}
+function leftShort(c){const L=c.leftDates;const f=d=>d.today?'today':fdw(d.date);
+  return L.length<=3?L.map(f).join(', '):`${f(L[0])}, ${f(L[1])} and ${L.length-2} more`}
+function metric(k,v,x,how,drill,fc){
+  return `<div class="m ${fc?'forecast':''}"><div class="k"><span>${k}</span>${fc?'<span class="tag fc">Forecast</span>':''}</div><div class="v">${v}</div><div class="x">${x}</div>
+  <details><summary>How</summary>${how} ${drill?`<button class="linkbtn" data-act="filter" data-f="${drill}">See the dates</button>`:''}</details></div>`;
+}
+function attention(c){
+  const items=[];
+  if(c.missing.length)items.push(['bad','Missing',`${c.missing.length} scheduled workday${c.missing.length>1?'s':''} without data: ${c.missing.map(d=>`<button class="linkbtn" data-act="edit" data-date="${d}">${fd(d)}</button>`).join(', ')}. Upload a newer Hours Tracked export or enter them by hand.`]);
+  const I=c.idle;
+  if(I.summary&&I.rec){
+    if(I.rec.state==='needs-daily')items.push(['warn','Daily report needed',`The Activity Summary for ${fd(I.summary.start)}–${fd(I.summary.end)} needs daily totals for ${I.rec.missing.length} date${I.rec.missing.length>1?'s':''} before it can be checked.`]);
+    if(I.rec.state==='differ')items.push(['bad','Tracked totals differ',`Daily totals add up to ${HMS(I.rec.sum)}, the Activity Summary says ${HMS(I.summary.tracked)} (${I.rec.diff>0?'+':''}${HMS(I.rec.diff)}). The idle estimate is on hold.`]);
+  }
+  if(I.extra&&I.extra.length&&I.summary)items.push(['warn','Additional dates need coverage',`The Activity Summary ends ${fd(I.summary.end)}, but you have tracked time through ${fd(I.extra[I.extra.length-1])}. Upload a newer summary to cover the latest days.`]);
+  if(!I.summary&&I.source!=='daily'&&c.tracked>0)items.push(['warn','No Activity Summary',`Upload the Activity Summary for this period to estimate idle time.`]);
+  if(I.pending)items.push(['warn','Pending daily detail',`No-assignment exception${I.pending.length>1?'s':''} on ${I.pending.map(fd).join(', ')} can't be removed from a period summary. Add that day's idle and meeting time.`]);
+  const exp=c.rows.filter(r=>r.hol&&r.hol.status==='expected'&&r.date>=today()&&TD.versionFor(S.settings.schedules,r.date).workdays.includes(r.wd));
+  if(exp.length)items.push(['warn','Holiday date expected',exp.map(r=>`${esc(r.hol.name)} on ${fdw(r.date)}`).join('; ')+'. '+(exp.some(r=>r.wd!==4)?'Egypt often moves mid-week holidays to a Thursday shortly before. ':'')+'Confirm the date once it is announced. <button class="linkbtn" data-act="tabOff">Check or move it</button>']);
+  const fl=c.rows.filter(r=>r.flags.length);
+  if(fl.length)items.push(['warn','Review',fl.map(r=>`<button class="linkbtn" data-act="edit" data-date="${r.date}">${fd(r.date)}</button>: ${esc(r.flags.join('; '))}`).join('<br>')]);
+  if(!items.length)items.push(['good','All clear','Every completed workday has data and the reports reconcile.']);
+  return `<ul class="attn">${items.map(([k,t,b])=>`<li><span class="pill ${k} b">${t}</span><div>${b}</div></li>`).join('')}</ul>`;
+}
+/* chart */
+function series(c){
+  let cum=0,exp=0,pts=[];
+  for(const r of c.rows){exp+=r.req; if(r.date<=c.asOf){cum+=(r.t||0)} pts.push({date:r.date,cum:r.date<=c.asOf?cum:null,exp,req:r.req,t:r.t});}
+  // forecast from asOf
+  if(c.projection&&!c.final){const avg=c.projection.avg;let f=null;
+    for(const p of pts){if(p.date===c.asOf){f=p.cum;p.fc=f;continue} if(f!==null&&p.date>c.asOf){if(p.req>0)f+=avg;p.fc=f}}
+    const last=pts[pts.length-1]; if(last.fc!==undefined)last.fc=c.projection.finish; }
+  return pts;
+}
+function chartTable(c){const pts=series(c);return `<div class="tablewrap" style="max-height:280px;margin-top:8px"><table><thead><tr><th>Date</th><th class="num">Tracked (cumulative)</th><th class="num">Expected</th><th class="num">Forecast</th></tr></thead><tbody>
+  ${pts.map(p=>`<tr><td>${fdw(p.date)}</td><td class="num">${p.cum===null?'—':HMS(p.cum)}</td><td class="num">${HMS(p.exp)}</td><td class="num">${p.fc!==undefined?HMS(Math.round(p.fc)):'—'}</td></tr>`).join('')}</tbody></table></div>`}
+function bindChart(c){
+  const box=$('#chart'); if(!box)return;
+  const pts=series(c); const W=Math.max(300,box.clientWidth||600), Hh=Math.round(Math.min(300,Math.max(200,W*0.42)));
+  const pad={l:44,r:12,t:12,b:26}; const iw=W-pad.l-pad.r, ih=Hh-pad.t-pad.b;
+  const maxV=Math.max(c.goal,...pts.map(p=>Math.max(p.exp,p.cum||0,p.fc||0)))*1.05||3600;
+  const x=i=>pad.l+(pts.length>1?i/(pts.length-1)*iw:0), y=v=>pad.t+ih-v/maxV*ih;
+  const path=k=>{let d='';pts.forEach((p,i)=>{const v=p[k];if(v===null||v===undefined)return;d+=(d?'L':'M')+x(i).toFixed(1)+','+y(v).toFixed(1)});return d};
+  const step=Math.ceil(maxV/3600/5/10)*10||10; let grid='';
+  for(let h=0;h*3600<=maxV;h+=step){const yy=y(h*3600);grid+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${pad.l-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--muted)">${h}h</text>`}
+  let xl=''; pts.forEach((p,i)=>{if(i===0||i===pts.length-1||p.date.endsWith('-01')||p.date===c.asOf)xl+=`<text x="${x(i)}" y="${Hh-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${fd(p.date)}</text>`});
+  const ai=pts.findIndex(p=>p.date===c.asOf);
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Cumulative tracked hours ${HM(c.tracked)} against ${HM(c.goal)} target">
+   ${grid}${xl}
+   <line x1="${x(ai)}" x2="${x(ai)}" y1="${pad.t}" y2="${pad.t+ih}" stroke="var(--muted)" stroke-dasharray="2 3"/>
+   <path d="${path('exp')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+   <path d="${path('fc')}" fill="none" stroke="var(--sand)" stroke-width="2" stroke-dasharray="2 4"/>
+   <path d="${path('cum')}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+   <g id="hov" style="display:none"><line id="hl1" y1="${pad.t}" y2="${pad.t+ih}" stroke="var(--ink)" stroke-opacity=".3"/><circle id="hc" r="4" fill="var(--accent)"/></g>
+   <rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
+  </svg><div class="tip" id="tip"></div>
+  <div class="legend"><span><i style="background:var(--accent)"></i>Tracked</span><span><i style="border-top:2px dashed var(--muted);height:0;border-radius:0"></i>Expected by schedule</span><span><i style="border-top:2px dotted var(--sand);height:0;border-radius:0"></i>Forecast</span></div>`;
+  const hit=box.querySelector('#hit'),tip=box.querySelector('#tip'),hov=box.querySelector('#hov');
+  const show=ev=>{const rect=box.querySelector('svg').getBoundingClientRect();const px=(ev.clientX-rect.left)/rect.width*W;
+    const i=Math.max(0,Math.min(pts.length-1,Math.round((px-pad.l)/iw*(pts.length-1))));const p=pts[i];
+    hov.style.display='';box.querySelector('#hl1').setAttribute('x1',x(i));box.querySelector('#hl1').setAttribute('x2',x(i));
+    const hc=box.querySelector('#hc');const v=p.cum!==null?p.cum:(p.fc!==undefined?p.fc:p.exp);hc.setAttribute('cx',x(i));hc.setAttribute('cy',y(v));
+    tip.innerHTML=`<b>${fdw(p.date)}</b><br>Tracked: ${p.cum===null?'—':HMS(p.cum)}<br>Expected: ${HMS(p.exp)}${p.fc!==undefined&&p.cum===null?'<br>Forecast: '+HMS(Math.round(p.fc)):''}<br>${stText(c.rows[i].st)}`;
+    tip.style.display='block';const sx=x(i)/W*rect.width;tip.style.left=Math.min(rect.width-tip.offsetWidth,Math.max(0,sx-tip.offsetWidth/2))+'px';tip.style.top=Math.max(0,y(v)/Hh*rect.height-tip.offsetHeight-12)+'px'};
+  hit.addEventListener('pointermove',show);hit.addEventListener('pointerdown',show);
+  hit.addEventListener('pointerleave',()=>{tip.style.display='none';hov.style.display='none'});
+}
+/* days tab */
+const FILTERS=[['all','All dates'],['left','Upcoming workdays'],['missing','Missing'],['review','Needs review'],['short','Under 8h'],['off','Worked on a day off'],['exceptions','Leave, holidays & exceptions']];
+function daysTab(c){
+  const f=ui.filter;
+  const leftSet=new Set(c.leftDates.map(d=>d.date));
+  const rows=c.rows.filter(r=>f==='all'||(f==='left'&&leftSet.has(r.date))||(f==='missing'&&r.st==='missing')||(f==='short'&&(r.st==='short'||r.st==='zero'))||(f==='off'&&r.st==='off')||(f==='review'&&(r.flags.length||r.st==='missing'||r.st==='zero'))||(f==='exceptions'&&((r.day&&(r.day.kind||r.day.noAssign||r.day.offsite))||r.hol)));
+  return `<div class="chips" role="group" aria-label="Filter dates">${FILTERS.map(([k,l])=>`<button class="chip" aria-pressed="${f===k}" data-act="filter" data-f="${k}">${l}</button>`).join('')}
+   <span class="spacer"></span><button class="btn small" data-act="edit" data-date="${c.asOf}">Add or edit a day</button></div>
+  <div class="tablewrap"><table><thead><tr><th>Date</th><th class="num">Required</th><th class="num">Tracked</th><th class="num">Under by</th><th class="num">Idle</th><th class="num">Meetings</th><th>Day type &amp; exceptions</th><th>Source</th><th>Status</th></tr></thead><tbody>
+  ${rows.length?rows.map(r=>{const d=r.day||{};const ex=[dayTypeText(r),d.noAssign?'No assignment ('+d.noAssign.status+')':'',d.offsite?'Off-site':'',d.note?'Note':''].filter(Boolean).join(', ');
+   return `<tr class="${r.st==='future'||r.st==='rest'?'dim':''}"><td><button class="linkbtn" data-act="edit" data-date="${r.date}">${fdw(r.date)}</button></td><td class="num">${r.req?HM(r.req):'—'}</td><td class="num">${r.t===null?(leftSet.has(r.date)&&c.pace?`<span class="note">needs ${HM(c.pace)}</span>`:'—'):HMS(r.t)}</td><td class="num">${r.short?HMS(r.short):''}</td>
+   <td class="num">${typeof d.idle==='number'?HM(d.idle):''}</td><td class="num">${typeof d.meet==='number'?HM(d.meet):''}</td><td>${esc(ex)}</td><td>${srcText(d)}</td><td><span class="pill ${r.st==='met'?'good':r.st==='missing'||r.st==='zero'?'bad':r.st==='short'?'warn':''}">${stText(r.st)}</span>${r.flags.length?' <span class="pill warn">Review</span>':''}</td></tr>`}).join(''):`<tr><td colspan="9" class="note" style="text-align:center;padding:20px">No dates match this filter.</td></tr>`}
+  </tbody></table></div>`;
+}
+function srcText(d){if(!d||d.tSrc===undefined)return '';const s={'hours-csv':'Hours Tracked CSV',csv:'CSV',manual:'Manual'}[d.tSrc]||d.tSrc;return esc(s)+(d.tOrig?` (imported ${HMS(d.tOrig.sec)})`:'')}
+/* days off & holidays tab */
+function offTab(c){
+  const P=c.P, H=S.settings.holidays||{country:'none',removed:[],added:[]};
+  const leaves=Object.keys(S.days).filter(d=>S.days[d].kind==='leave'||S.days[d].kind==='partial').sort();
+  const inP=leaves.filter(d=>d>=P.start&&d<=P.end), later=leaves.filter(d=>d>P.end);
+  const yr=+P.end.slice(0,4); const from=`${yr-1}-12-21`, to=`${yr}-12-31`;
+  const hols=TD.holidayList(S.settings,from,to);
+  const set=TD.HOLIDAY_SETS[H.country];
+  const lrow=d=>{const x=S.days[d];return `<li><b>${fdw(d)}</b>: ${esc(x.leaveType||'Approved leave')}${x.kind==='partial'?' ('+TD.leaveFrac(x)+' day, '+HM(x.leaveSec||0)+')':' (1 day)'}${x.reason&&x.reason!==x.leaveType?' · '+esc(x.reason):''}${x.leaveRef?' · '+esc(x.leaveRef):''} <button class="btn ghost" data-act="rmLeave" data-date="${d}">Remove</button></li>`};
+  return `<div class="offgrid">
+  <section class="card"><h2>Approved days off</h2><p class="lead">Leave approved by your manager in Zoho People. Each marked workday needs 0h, so it adds no shortfall.</p>
+   <p><button class="btn primary" data-act="leave">Add approved day off</button></p>
+   <h3>${esc(pLabel(P))} period${c.leaveDays?`: ${c.leaveDays} day${c.leaveDays===1?'':'s'} of leave`:''}</h3>${inP.length?`<ul class="note" style="padding-inline-start:18px;margin:0">${inP.map(lrow).join('')}</ul>`:'<p class="note">None in this period.</p>'}
+   ${later.length?`<h3>Later</h3><ul class="note" style="padding-inline-start:18px;margin:0">${later.map(lrow).join('')}</ul>`:''}</section>
+  <section class="card"><h2>Public holidays</h2><p class="lead">Applied automatically. A holiday on a scheduled workday needs 0h.</p>
+   <label class="field"><span>Holiday calendar</span><select id="hCountry"><option value="EG" ${H.country==='EG'?'selected':''}>Egypt (official paid holidays)</option><option value="none" ${H.country!=='EG'?'selected':''}>None</option></select></label>
+   ${set?`<div class="callout">Dates marked <b>Expected</b> can still move. Islamic holidays depend on moon sighting, and the cabinet often moves mid-week holidays to a Thursday shortly before. When the date is announced, use <b>Move</b>. Built-in dates run through ${fd(set.through,true)}.</div>`:''}
+   <div class="tablewrap" style="max-height:420px"><table><thead><tr><th>Date</th><th>Holiday</th><th>Status</th><th></th></tr></thead><tbody>
+   ${hols.length?hols.map(h=>{const wk=TD.versionFor(S.settings.schedules,h.date).workdays.includes(TD.weekday(h.date));
+     return `<tr class="${h.removed?'dim':''}"><td>${fdw(h.date)} <span class="note">${h.date.slice(0,4)}</span></td><td>${esc(h.name)}${!wk&&!h.removed?' <span class="note">(not a workday)</span>':''}</td>
+     <td><span class="pill ${h.removed?'':h.status==='announced'?'good':h.status==='added'?'open':'warn'}">${h.removed?'Removed':h.status==='announced'?'Announced':h.status==='added'?'Added by you':'Expected'}</span></td>
+     <td style="white-space:nowrap">${h.removed?`<button class="btn small" data-act="hRestore" data-date="${h.date}">Restore</button>`:h.source==='added'?`<button class="btn small" data-act="hDel" data-date="${h.date}">Delete</button>`:`<button class="btn small" data-act="hMove" data-date="${h.date}">Move</button> <button class="btn small" data-act="hRemove" data-date="${h.date}">Remove</button>`}</td></tr>`}).join(''):`<tr><td colspan="4" class="note">No holidays between ${fd(from,true)} and ${fd(to,true)}.</td></tr>`}
+   </tbody></table></div>
+   <div id="hMoveBox"></div>
+   <h3>Add a holiday</h3><div class="row"><label class="field"><span>Date</span><input type="date" id="hDate"></label><label class="field"><span>Name</span><input type="text" id="hName" maxlength="80" placeholder="e.g. Company day off"></label><button class="btn" data-act="hAdd">Add holiday</button></div>
+   <p class="note">Showing ${fd(from,true)} – ${fd(to,true)}. Use the period arrows to see other years.</p></section></div>`;
+}
+async function saveHolidays(mut,msg,detail){
+  const n=JSON.parse(JSON.stringify(S)); n.settings.holidays=n.settings.holidays||{country:'EG',removed:[],added:[]};
+  n.settings.holidays.removed=n.settings.holidays.removed||[];n.settings.holidays.added=n.settings.holidays.added||[];
+  mut(n.settings.holidays);
+  n.batches.unshift({id:'h'+Date.now(),type:'holiday',file:'Public holidays',at:meta().at,by:'you',detail,undone:false});n.batches=n.batches.slice(0,80);
+  return save(n,msg);
+}
+function openLeave(){
+  const dlg=$('#dlgDay'); const def=ui.asOf||today();
+  dlg.innerHTML=`<div class="dlg"><header><div><h2 id="dayT">Add approved day off</h2><p class="note" style="margin:2px 0 0">${S.person?esc(S.person)+' · ':''}Weekends and public holidays in the range are skipped.</p></div><button class="btn icon" data-act="closeDay" aria-label="Close">×</button></header>
+   <div class="row"><label class="field"><span>First day</span><input type="date" id="lvS" value="${def}"></label><label class="field"><span>Last day</span><input type="date" id="lvE" value="${def}"></label></div>
+   <div class="row"><label class="field"><span>Leave type</span><select id="lvT"><option>Annual leave</option><option>Sick leave</option><option>Casual leave</option><option>Bereavement leave</option><option>Other approved leave</option></select></label>
+   <label class="field"><span>Amount per day</span><select id="lvP"><option value="1">Full day (1 = 8h)</option><option value="0.5">Half day (0.5 = 4h)</option><option value="0.25">Quarter day (0.25 = 2h)</option></select></label></div>
+   <label class="field"><span>Zoho People reference (optional)</span><input type="text" id="lvR" maxlength="120" placeholder="e.g. request number or approval date"></label>
+   <label class="check"><input type="checkbox" id="lvOk"> My manager approved this leave in Zoho People</label>
+   <div id="lvPrev" class="note"></div><p class="note" id="lvErr" role="alert" style="color:var(--bad)"></p>
+   <footer><button class="btn" data-act="closeDay">Cancel</button><button class="btn primary" data-act="saveLeave">Add day off</button></footer></div>`;
+  if(!dlg.open)dlg.showModal();
+  const upd=()=>{const s=$('#lvS').value,e=$('#lvE').value;if(!TD.isValidISO(s)||!TD.isValidISO(e)||s>e){$('#lvPrev').textContent='';return}
+    if(TD.dateRange(s,e).length>62){$('#lvPrev').textContent='Pick a range of two months or less.';return}
+    const pl=TD.planLeave(S,{start:s,end:e});
+    const fr=parseFloat($('#lvP').value);
+    $('#lvPrev').innerHTML=pl.days.length?`Uses <b>${pl.days.length*fr} day${pl.days.length*fr===1?'':'s'}</b> (${HM(pl.days.length*fr*28800)} off required hours). Marks <b>${pl.days.length}</b> workday${pl.days.length>1?'s':''}: ${pl.days.map(d=>fdw(d.date)+(d.already?' (already leave)':'')).join(', ')}.${pl.skipped.filter(x=>x.why!=='weekend').length?' Skips '+pl.skipped.filter(x=>x.why!=='weekend').map(x=>esc(x.why)+' ('+fd(x.date)+')').join(', ')+'.':''}`:'No scheduled workdays in this range.'};
+  $('#lvP').addEventListener('change',upd);
+  ['lvS','lvE'].forEach(id=>$('#'+id).addEventListener('change',()=>{if(id==='lvS'&&$('#lvE').value<$('#lvS').value)$('#lvE').value=$('#lvS').value;upd()}));upd();
+}
+async function saveLeave(){
+  const s=$('#lvS').value,e=$('#lvE').value,frac=parseFloat($('#lvP').value),part=frac===1?'full':'partial',err=$('#lvErr');
+  if(!TD.isValidISO(s)||!TD.isValidISO(e)||s>e){err.textContent='Pick a first day on or before the last day.';return}
+  if(TD.dateRange(s,e).length>62){err.textContent='Pick a range of two months or less.';return}
+  if(!$('#lvOk').checked){err.textContent='Only approved leave counts. Tick the approval box once your manager has approved it.';return}
+  const leaveSec=part==='partial'?Math.round(frac*28800):null;
+  const t=$('#lvT').value;
+  const r=TD.applyLeave(S,{start:s,end:e,part,leaveSec,leaveType:t,reason:t,ref:$('#lvR').value.trim()},meta());
+  if(!r.count){err.textContent='No scheduled workdays in this range.';return}
+  if(await save(r.state,`${t} added: ${r.count} × ${frac} day = ${r.count*frac} day${r.count*frac===1?'':'s'} (${HM(r.count*frac*28800)}).`))$('#dlgDay').close();
+}
+/* hr tab */
+function hrTab(c){
+  const sf=c.shortfall, isP=sf.method!=='daily', I=c.idle;
+  const pr=sf.primary;
+  const other=isP?sf.daily.sec:sf.period.low;
+  let idleHtml='';
+  if(I.result){const r=I.result;idleHtml=`<p class="big">${r.excess?HM(r.excess)+' excess':'No excess idle'}</p><p class="note">${r.excess?`${(r.days).toFixed(2)} leave-day equivalents. `:''}Source: ${I.source==='daily'?'daily idle and meeting entries':'Activity Summary'}, ${fd(I.scope.start)} – ${fd(I.scope.end)}${I.rec?` · <span class="pill good">${I.rec.label}</span>`:''}</p>
+    <dl class="kv"><dt>Tracked in scope</dt><dd>${HMS(r.tracked)}</dd><dt>Recorded idle</dt><dd>${HMS(r.idle)}</dd><dt>Meetings</dt><dd>− ${HMS(r.meeting)}</dd><dt>Net idle</dt><dd>${HMS(r.net)}</dd><dt>Allowed (${c.policy.idlePct}%)</dt><dd>${HMS(Math.floor(r.allowed))}</dd><dt>Excess</dt><dd>${HMS(Math.ceil(r.excess))}</dd></dl>
+    ${I.summary&&I.summary.pct?`<p class="note">Report percentages, shown for reference only: ${Object.entries(I.summary.pct).map(([k,v])=>esc(k.replace(/ %$/,''))+' '+esc(v)).join(', ')}.</p>`:''}`;}
+  else if(I.summary){idleHtml=`<p class="big">On hold</p><p class="note"><span class="pill ${I.rec&&I.rec.state==='differ'?'bad':'warn'}">${I.pending?'Pending daily detail':I.rec?I.rec.label:''}</span> Activity Summary ${fd(I.summary.start)} – ${fd(I.summary.end)}: tracked ${HMS(I.summary.tracked)}, idle ${HMS(I.summary.idle)}, meetings ${HMS(I.summary.meeting)}. The estimate is calculated once the daily totals for the same dates match to the second.</p>`}
+  else idleHtml=`<p class="big">No report yet</p><p class="note">Upload this period's Activity Summary, or enter idle and meeting time on each tracked day.</p>`;
+  if(I.extra&&I.extra.length&&I.summary)idleHtml+=`<div class="callout">Covers dates through ${fd(I.summary.end)} only. ${I.extra.length} later tracked date${I.extra.length>1?'s are':' is'} not included.</div>`;
+  return `<div class="cols">
+   <section class="card"><h2>Work-hour shortfall</h2><p class="lead">${isP?'Monthly total: all tracked hours, weekends included, against required hours on completed workdays.':'Day by day: each completed workday\'s gap to its required hours, added up.'}</p>
+    <p class="big">${HM(pr.sec)}</p><p class="note">${TD.fmtDays(pr.sec)} leave-day equivalents (÷ 8h)${sf.throughDate?` through ${fd(sf.throughDate)}`:''}, ${sf.completedDays} completed workday${sf.completedDays===1?'':'s'}.</p>
+    ${pr.high>pr.sec?`<div class="callout"><b>Provisional.</b> ${c.missing.length} workday${c.missing.length>1?'s have':' has'} no data. If ${c.missing.length>1?'they stay':'it stays'} empty the shortfall would be ${HM(pr.high)} (${TD.fmtDays(pr.high)} days).</div>`:''}
+    <p class="note">For comparison, the ${isP?'day-by-day':'monthly-total'} method gives ${HM(other)} (${TD.fmtDays(other)} days). Change the method in Settings.</p>
+    <p class="note">Under the policy this is taken from annual leave first and from salary only if the balance runs out. This is an estimate for your review, not a payroll figure.</p></section>
+   <section class="card"><h2>Idle time</h2><p class="lead">Net idle = recorded idle − meetings, never below zero. Only net idle above ${c.policy.idlePct}% of tracked time counts.</p>${idleHtml}</section>
+   <section class="card"><h2>Assumptions in use</h2><ul class="note" style="padding-inline-start:18px;margin:0">
+    <li>Payroll period: 21st to the 20th, labelled by the ending month. Time zone ${esc(S.settings.tz)}.</li>
+    <li>Schedule: ${scheduleText(c.schedule)}. Public holidays (${S.settings.holidays&&TD.HOLIDAY_SETS[S.settings.holidays.country]?TD.HOLIDAY_SETS[S.settings.holidays.country].name+' calendar':'no calendar'}) and approved full-day leave require 0h.</li>
+    <li>Weekend hours count toward the monthly target and, under the monthly-total method, offset weekday shortfalls.</li>
+    <li>Leave is taken in 0.25 (2h), 0.5 (4h) or 1 (8h) day units and lowers that day's required hours.</li>
+    <li>All meeting time is treated as eligible to offset idle.</li>
+    <li>A no-assignment exception reported within one working day removes that day's idle and meetings once.</li>
+    <li>The policy's worked examples use 48h as 33% of 163h. The dashboard follows the written 33% rule; HR should confirm.</li>
+    <li>Leave-day equivalents are shown to two decimals. Payroll rounding is not confirmed.</li></ul></section></div>`;
+}
+/* imports tab */
+function importsTab(){
+  if(!S.batches.length)return `<div class="empty"><p class="note">No imports or edits yet.</p><button class="btn primary" data-act="upload">Upload Time Doctor exports</button></div>`;
+  return `<div class="tablewrap"><table><thead><tr><th>When</th><th>What</th><th>Dates</th><th>Changes</th><th>Status</th><th></th></tr></thead><tbody>
+  ${S.batches.map(b=>{const when=new Date(b.at);const w=isNaN(when)?'':when.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+   const what=b.type==='activity'?'Activity Summary':b.type==='hours'?'Hours Tracked':b.type==='normalized'?'date,hours CSV':b.type==='manual'?'Manual edit':b.type==='restore'?'Backup restore':b.type==='settings'?'Settings change':b.type==='leave'?'Approved day off':b.type==='holiday'?'Holiday calendar':b.type;
+   const ch=b.type==='activity'?'Summary saved':b.type==='manual'?'1 date':b.changes?`${b.changes.length} changed, ${b.unchanged||0} unchanged`:(b.detail?esc(b.detail):'');
+   const canUndo=!b.undone&&(b.type==='hours'||b.type==='normalized'||b.type==='activity'||b.type==='manual'||b.type==='leave');
+   return `<tr class="${b.undone?'dim':''}"><td>${esc(w)}</td><td>${esc(what)}<br><span class="note">${esc(b.file||'')}</span></td><td>${b.range?esc(fd(b.range.start)+(b.range.end!==b.range.start?' – '+fd(b.range.end,true):', '+b.range.start.slice(0,4))):''}</td><td>${ch}</td>
+   <td>${b.undone?'Undone'+(b.undoneSkipped&&b.undoneSkipped.length?` (${b.undoneSkipped.length} date${b.undoneSkipped.length>1?'s':''} kept because they changed later)`:''):'Applied'}</td><td>${canUndo?`<button class="btn small" data-act="undo" data-id="${b.id}">Undo</button>`:''}</td></tr>`}).join('')}
+  </tbody></table></div><p class="note">Undo restores values from before the import. Dates edited after the import keep their newer value.</p>`;
+}
+/* settings tab */
+function settingsTab(c){
+  const sch=c.schedule, pol=c.policy, P=c.P;
+  const curStart=TD.periodByKey(TD.periodKeyFor(today())).start;
+  return `<div class="cols">
+  <section class="card"><h2>Person and time</h2>
+   <label class="field"><span>Person tracked in this ledger</span><input type="text" id="sPerson" value="${esc(S.person)}" maxlength="80"><small>Imports must belong to this person. Activity Summary names are matched against it.</small></label>
+   <label class="field"><span>Time zone</span><input type="text" id="sTz" value="${esc(S.settings.tz)}"><small>An IANA zone such as Asia/Riyadh or Africa/Cairo. Decides which day is today.</small></label>
+   <label class="field"><span>Personal planning target (hours, optional)</span><input type="number" id="sTarget" min="0" step="0.25" value="${S.settings.planningTargetSec?S.settings.planningTargetSec/3600:''}"><small>Leave empty to use the schedule. HR shortfall always uses the schedule.</small></label>
+   <button class="btn primary" data-act="saveBasic">Save</button></section>
+  <section class="card"><h2>Work schedule</h2><p class="lead">Changes apply from the date you choose, so closed periods keep their rules.</p>
+   <div class="field"><span>Workdays</span><div class="wd">${WDS.map((w,i)=>`<label><input type="checkbox" name="wd" value="${i}" ${sch.workdays.includes(i)?'checked':''}>${w}</label>`).join('')}</div></div>
+   <div class="row"><label class="field"><span>Hours per workday</span><input type="number" id="sDaily" min="0.5" max="24" step="0.25" value="${sch.dailySec/3600}"></label>
+   <label class="field"><span>Effective from</span><input type="date" id="sFrom" value="${curStart}"></label></div>
+   <label class="check"><input type="checkbox" id="sHist"> Allow this change to recalculate closed periods (recorded in history)</label>
+   <p><button class="btn primary" data-act="saveSched">Save schedule</button></p>
+   <h3>Versions</h3><ul class="note" style="padding-inline-start:18px;margin:0">${S.settings.schedules.slice().sort((a,b)=>a.from<b.from?1:-1).map(v=>`<li>From ${v.from==='2000-01-01'?'the start':fd(v.from,true)}: ${scheduleText(v)}</li>`).join('')}</ul></section>
+  <section class="card"><h2>HR policy rules</h2><p class="lead">Owner-only settings. Changes apply from the date you choose.</p>
+   <div class="field"><span>Shortfall method</span>
+    <label class="check"><input type="radio" name="sMeth" value="period" ${pol.shortfallMethod!=='daily'?'checked':''}> Monthly total: weekend hours count toward the target</label>
+    <label class="check"><input type="radio" name="sMeth" value="daily" ${pol.shortfallMethod==='daily'?'checked':''}> Day by day: each workday's gap counts on its own</label></div>
+   <div class="row"><label class="field"><span>Idle allowance %</span><input type="number" id="sIdle" min="0" max="100" step="1" value="${pol.idlePct}"></label>
+   <label class="field"><span>Effective from</span><input type="date" id="sPFrom" value="${curStart}"></label></div>
+   <p class="note">Leave counts in 0.25 (2h), 0.5 (4h) or 1 (8h) day units.</p>
+   <p><button class="btn primary" data-act="savePolicy">Save policy rules</button></p>
+   <h3>Versions</h3><ul class="note" style="padding-inline-start:18px;margin:0">${S.settings.policies.slice().sort((a,b)=>a.from<b.from?1:-1).map(v=>`<li>From ${v.from==='2000-01-01'?'the start':fd(v.from,true)}: ${v.shortfallMethod==='daily'?'day by day':'monthly total'}, idle ${v.idlePct}%</li>`).join('')}</ul></section>
+  <section class="card"><h2>Data</h2>
+   <p class="note">${mode==='account'?'Saved privately to your Claude account. Nobody else who opens this page can read it, including if you share the link.':'Saved in this browser only. Another browser or device will not see these entries. Export a backup to move them.'}</p>
+   <div class="row" style="gap:8px"><button class="btn" data-act="exportCsv">Export ${esc(pLabel(P))} as CSV</button><button class="btn" data-act="exportJson">Export full backup</button><button class="btn" data-act="upload">Restore from backup</button></div>
+   <p class="note">The CSV includes the period, cutoff, time zone, rule version and coverage. Restoring a backup asks for confirmation first.</p>
+   <h3>Remove everything</h3><p class="note">Deletes all days, reports and history in this ledger.</p>
+   <label class="check"><input type="checkbox" id="sWipe"> I understand this cannot be undone</label><p><button class="btn" data-act="wipe">Delete all data</button></p></section></div>`;
+}
+
+/* ---------------- day editor ---------------- */
+function openDay(date){
+  if(!date||!TD.isValidISO(date))date=today();
+  ui.sel=date; const d=S.days[date]||{}; const P=TD.periodFor(date);
+  const pol=TD.versionFor(S.settings.policies,P.start); const req=TD.requiredSec(date,d,S.settings,pol);
+  const v=x=>typeof x==='number'?HMS(x):'';
+  const dlg=$('#dlgDay');
+  dlg.innerHTML=`<div class="dlg"><header><div><h2 id="dayT">${WDL[TD.weekday(date)]}, ${fd(date,true)}</h2><p class="note" style="margin:2px 0 0">${S.person?esc(S.person)+' · ':''}${pLabel(P)} payroll period · ${req?HM(req)+' required':'Not a scheduled workday'}</p></div><button class="btn icon" data-act="closeDay" aria-label="Close">×</button></header>
+   <label class="field"><span>Date</span><input type="date" id="dDate" value="${date}"></label>
+   ${(()=>{const h=TD.holidayFor(date,S.settings);return h?`<p class="callout" style="margin:0">Public holiday: ${esc(h.name)}${h.status==='expected'?' (expected date)':h.status==='added'?' (added by you)':''}. Required hours are 0. Change it under Days off &amp; holidays.</p>`:''})()}
+   ${d.tSrc&&d.tSrc!=='manual'?`<p class="note">Tracked time came from ${srcText(d)}. Editing it keeps the imported value on record.</p>`:''}
+   ${d.tOrig?`<p class="note">Originally imported: ${HMS(d.tOrig.sec)}. Current value is a manual change.</p>`:''}
+   <div class="row"><label class="field"><span>Tracked work</span><input type="text" id="dT" value="${v(d.t)}" placeholder="7:30 or 7.5" inputmode="decimal"><small>Empty means no data. 0 means a confirmed zero.</small></label>
+   <label class="field"><span>Recorded idle</span><input type="text" id="dI" value="${v(d.idle)}" placeholder="optional"></label>
+   <label class="field"><span>Meeting time</span><input type="text" id="dM" value="${v(d.meet)}" placeholder="optional"></label></div>
+   <div class="row"><label class="field"><span>Day type</span><select id="dK"><option value="">Normal schedule</option><option value="holiday" ${d.kind==='holiday'?'selected':''}>Holiday (this date only)</option><option value="leave" ${d.kind==='leave'?'selected':''}>Approved full-day leave</option><option value="partial" ${d.kind==='partial'?'selected':''}>Approved half or quarter day leave</option></select></label>
+   <label class="field"><span>Partial leave amount</span><select id="dL"><option value="14400" ${d.leaveSec===14400||!d.leaveSec?'selected':''}>Half day (0.5 = 4h)</option><option value="7200" ${d.leaveSec===7200?'selected':''}>Quarter day (0.25 = 2h)</option></select><small>Used when the day type is partial leave.</small></label>
+   <label class="field"><span>Reason</span><input type="text" id="dR" value="${esc(d.reason||'')}" maxlength="120" placeholder="e.g. Annual leave, approved in Zoho People"></label></div>
+   <label class="check"><input type="checkbox" id="dN" ${d.noAssign?'checked':''}> No tasks assigned this day (idle exception)</label>
+   <div class="row"><label class="field"><span>Exception status</span><select id="dNs"><option value="pending" ${d.noAssign&&d.noAssign.status==='pending'?'selected':''}>Not yet reported</option><option value="reported" ${d.noAssign&&d.noAssign.status==='reported'?'selected':''}>Emailed HR within one working day</option><option value="approved" ${d.noAssign&&d.noAssign.status==='approved'?'selected':''}>Accepted by HR</option><option value="late" ${d.noAssign&&d.noAssign.status==='late'?'selected':''}>Reported late or rejected</option></select></label>
+   <label class="field"><span>Off-site assignment reference</span><input type="text" id="dO" value="${esc(d.offsite&&d.offsite.ref||'')}" maxlength="120" placeholder="e.g. HR email subject and date"></label></div>
+   <label class="field"><span>Note</span><input type="text" id="dX" value="${esc(d.note||'')}" maxlength="160"></label>
+   <p class="note" id="dErr" role="alert" style="color:var(--bad)"></p>
+   <footer><button class="btn" data-act="closeDay">Cancel</button><button class="btn primary" data-act="saveDay" data-date="${date}">Save ${fd(date)}</button></footer></div>`;
+  if(!dlg.open)dlg.showModal();
+  dlg.querySelector('#dDate').addEventListener('change',e=>{if(TD.isValidISO(e.target.value))openDay(e.target.value)});
+  render();
+}
+async function saveDay(date){
+  const g=id=>$('#dlgDay '+id).value.trim(); const err=$('#dErr');
+  const pd=(s,label)=>{const p=TD.parseDuration(s);if(p.error)throw label+': '+p.error;if(p.blank)return null;if(p.sec>TD.DAY_SEC)throw label+' cannot exceed 24 hours.';return p.sec};
+  let patch;
+  try{
+    const t=pd(g('#dT'),'Tracked'),i=pd(g('#dI'),'Idle'),m=pd(g('#dM'),'Meetings'),l=+g('#dL');
+    if((i!==null)!==(m!==null))throw 'Enter both idle and meeting time for the day, or neither (use 0 for none).';
+    if(t!==null&&i!==null&&i>t)throw 'Idle time cannot be more than tracked time.';
+    const k=g('#dK');
+    patch={t,idle:i,meet:m,kind:k||null,leaveSec:k==='partial'?l:null,reason:g('#dR')||null,note:g('#dX')||null,
+      noAssign:$('#dN').checked?{status:g('#dNs')}:null,offsite:g('#dO')?{ref:g('#dO')}:null};
+  }catch(e){err.textContent=String(e);return}
+  const next=TD.applyManual(S,date,patch,meta());
+  if(await save(next,`Saved ${fd(date)}.`))$('#dlgDay').close();
+}
+
+/* ---------------- uploads ---------------- */
+function openUpload(){const dlg=$('#dlgUp');renderUpload();if(!dlg.open)dlg.showModal()}
+function renderUpload(){
+  const dlg=$('#dlgUp'); const U=ui.uploads;
+  dlg.innerHTML=`<div class="dlg"><header><div><h2 id="upT">Upload Time Doctor exports</h2><p class="note" style="margin:2px 0 0">Saving for ${S.person?'<b>'+esc(S.person)+'</b>':'the person you confirm below'}. Nothing changes until you apply a file.</p></div><button class="btn icon" data-act="closeUp" aria-label="Close">×</button></header>
+   <div class="drop" id="dropz"><p style="margin:0 0 8px">Drop the Hours Tracked (Totals) and Activity Summary CSVs here, together or one at a time.</p><button class="btn" data-act="pick">Choose files</button><p class="note" style="margin:8px 0 0">Also accepts a date,hours CSV and a ledger backup (.json). Up to 2 MB per file.</p></div>
+   ${U.map((u,i)=>previewCard(u,i)).join('')}
+   <footer><button class="btn" data-act="closeUp">Close</button>${U.some(u=>u.ready&&!u.applied)?`<button class="btn primary" data-act="applyAll">Apply ${U.filter(u=>u.ready&&!u.applied).length>1?'all ready files':'file'}</button>`:''}</footer></div>`;
+  const dz=dlg.querySelector('#dropz');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();dz.classList.remove('over');addFiles(e.dataTransfer.files)});
+  dlg.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('change',e=>{const u=ui.uploads[+e.target.dataset.i];u.confirms[e.target.dataset.confirm]=e.target.checked;evalReady(u);renderUpload()}));
+  dlg.querySelectorAll('[data-person]').forEach(el=>el.addEventListener('input',e=>{ui.uploads[+e.target.dataset.i].personInput=e.target.value}));
+  dlg.querySelectorAll('[data-person]').forEach(el=>el.addEventListener('change',e=>{const u=ui.uploads[+e.target.dataset.i];evalReady(u);renderUpload()}));
+}
+async function addFiles(list){
+  for(const f of list){
+    if(f.size>2*1024*1024){ui.uploads.push({name:f.name,fatal:`${f.name} is ${(f.size/1048576).toFixed(1)} MB. The limit is 2 MB per file.`});continue}
+    const text=await f.text();
+    if(/\.json$/i.test(f.name)||/^\s*\{/.test(text)){let parsed=null;try{parsed=migrateShape(JSON.parse(text))}catch(e){}
+      ui.uploads.push(parsed?{name:f.name,backup:parsed,confirms:{},ready:false}:{name:f.name,fatal:`${f.name} is not a ledger backup.`});evalReady(ui.uploads[ui.uploads.length-1]);continue}
+    const u={name:f.name,text,range:null,confirms:{},personInput:''};
+    reparse(u); ui.uploads.push(u);
+  }
+  renderUpload();
+}
+function reparse(u){u.parsed=TD.parseReport(u.text,u.name,u.range);u.hash=TD.hashText(u.text);u.plan=(!u.parsed.errors.length&&!u.parsed.needRange&&u.parsed.kind)?TD.planImport(S,u.parsed,u.hash):null;evalReady(u)}
+function evalReady(u){
+  if(u.fatal||u.applied){u.ready=false;return}
+  if(u.backup){u.ready=!!u.confirms.restore;return}
+  const p=u.parsed,pl=u.plan; if(!p||p.errors.length||p.needRange||!pl){u.ready=false;return}
+  if(pl.duplicate&&!pl.adds.length&&!pl.replaces.length&&p.kind!=='activity'){u.ready=false;return}
+  const person=S.person||(p.kind==='activity'?p.summary.name:u.personInput.trim());
+  let ok=!!person&&!!u.confirms.person;
+  if(pl.replaces&&pl.replaces.length&&!u.confirms.replace)ok=false;
+  if(p.kind==='activity'&&pl.summaryReplace&&!u.confirms.replace)ok=false;
+  if(p.kind==='activity'&&pl.nameMismatch&&!u.confirms.mapping)ok=false;
+  if(p.kind!=='activity'&&!p.records.length)ok=false;
+  u.ready=ok;
+}
+function previewCard(u,i){
+  if(u.fatal)return `<div class="pv"><h3>${esc(u.name)}</h3><p class="callout bad" style="margin:0">${esc(u.fatal)}</p></div>`;
+  if(u.applied)return `<div class="pv"><h3>${esc(u.name)}</h3><p class="callout good" style="margin:0">${esc(u.applied)}</p></div>`;
+  if(u.backup){const n=Object.keys(u.backup.days).length;return `<div class="pv"><h3>Backup: ${esc(u.name)}</h3><p class="note" style="margin:0">${n} dates, ${u.backup.summaries.length} activity summaries, ${u.backup.batches.length} history entries${u.backup.person?' for '+esc(u.backup.person):''}.</p>
+    <label class="check"><input type="checkbox" data-i="${i}" data-confirm="restore" ${u.confirms.restore?'checked':''}> Replace everything in this ledger with this backup</label></div>`}
+  const p=u.parsed,pl=u.plan; const kindName={hours:'Hours Tracked (Totals)',activity:'Activity Summary',normalized:'date,hours CSV'}[p.kind]||'Unrecognised file';
+  let h=`<div class="pv"><h3>${esc(kindName)}</h3><p class="note" style="margin:0">${esc(u.name)}${p.range?` · ${fd(p.range.start,true)} – ${fd(p.range.end,true)}${u.range?' (entered by you)':''}`:''}${pl?` · ${pl.periods.map(k=>pLabel(TD.periodByKey(k))).join(' and ')} payroll period${pl.periods.length>1?'s':''}`:''}</p>`;
+  if(p.needRange){h+=`<div class="callout">The filename doesn't include the export dates, so the year of labels like "Wed, Oct 21" can't be worked out. Enter the export range.</div>
+    <div class="row"><label class="field"><span>Export start</span><input type="date" id="rs${i}"></label><label class="field"><span>Export end</span><input type="date" id="re${i}"></label><button class="btn" data-act="setRange" data-i="${i}">Preview dates</button></div>`}
+  if(p.errors.length)h+=`<p class="callout bad" style="margin:0">${p.errors.length} problem${p.errors.length>1?'s':''} found. Nothing from this file will be saved until the file is fixed.</p><ul class="errs">${p.errors.slice(0,40).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`;
+  if(p.warnings.length)h+=`<ul class="warns">${p.warnings.slice(0,20).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`;
+  if(pl){
+    if(p.kind==='activity'){const s=p.summary;
+      h+=`<dl class="kv"><dt>Name in report</dt><dd>${esc(s.name)}</dd><dt>Tracked</dt><dd>${HMS(s.tracked)}</dd><dt>Idle</dt><dd>${HMS(s.idle)}</dd><dt>Meetings</dt><dd>${HMS(s.meeting)}</dd><dt>Check against daily totals</dt><dd><span class="pill ${pl.rec.state==='matched'?'good':pl.rec.state==='differ'?'bad':'warn'}">${pl.rec.label}</span></dd></dl>`;
+      if(pl.rec.state==='differ')h+=`<p class="note">Daily totals for these dates add up to ${HMS(pl.rec.sum)} (${pl.rec.diff>0?'+':''}${HMS(pl.rec.diff)}). The summary is saved, but the idle estimate waits until they match.</p>`;
+      if(pl.rec.state==='needs-daily')h+=`<p class="note">It will be saved and checked once the daily report for the same dates is imported.</p>`;
+      if(pl.summaryReplace)h+=`<label class="check"><input type="checkbox" data-i="${i}" data-confirm="replace" ${u.confirms.replace?'checked':''}> Replace the summary already saved for these dates (tracked ${HMS(pl.summaryReplace.tracked)})</label>`;
+      if(pl.nameMismatch)h+=`<label class="check"><input type="checkbox" data-i="${i}" data-confirm="mapping" ${u.confirms.mapping?'checked':''}> "${esc(s.name)}" in this report is ${esc(S.person)}</label>`;
+    }else{
+      h+=`<dl class="kv"><dt>Valid daily rows</dt><dd>${p.records.length}</dd><dt>Total</dt><dd>${HMS(pl.total)}</dd><dt>New dates</dt><dd>${pl.adds.length}</dd><dt>Changed values</dt><dd>${pl.replaces.length}</dd><dt>Already the same</dt><dd>${pl.same.length}</dd></dl>`;
+      if(pl.replaces.length)h+=`<div class="tablewrap" style="max-height:160px"><table><thead><tr><th>Date</th><th class="num">Saved now</th><th class="num">In this file</th><th>Saved from</th></tr></thead><tbody>${pl.replaces.map(r=>`<tr><td>${fdw(r.date)}</td><td class="num">${HMS(r.before)}</td><td class="num">${HMS(r.sec)}</td><td>${r.src==='manual'?'<b>Manual edit</b>':'Import'}</td></tr>`).join('')}</tbody></table></div>
+        <label class="check"><input type="checkbox" data-i="${i}" data-confirm="replace" ${u.confirms.replace?'checked':''}> Replace ${pl.replaces.length} saved value${pl.replaces.length>1?'s':''}${pl.manualOverrides.length?`, including ${pl.manualOverrides.length} manual edit${pl.manualOverrides.length>1?'s':''}`:''}</label>`;
+      if(pl.recs&&pl.recs.length)h+=`<p class="note">After import, Activity Summary check: ${pl.recs.map(x=>`${fd(x.s.start)}–${fd(x.s.end)} <span class="pill ${x.rec.state==='matched'?'good':x.rec.state==='differ'?'bad':'warn'}">${x.rec.label}</span>`).join(' ')}</p>`;
+    }
+    if(pl.duplicate)h+=`<p class="callout" style="margin:0">This exact file was already imported on ${esc(new Date(pl.duplicate.at).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}))}.${p.kind!=='activity'&&!pl.adds.length&&!pl.replaces.length?' Nothing would change, so there is nothing to apply.':''}</p>`;
+    if(!(pl.duplicate&&p.kind!=='activity'&&!pl.adds.length&&!pl.replaces.length)){
+      if(!S.person&&p.kind!=='activity')h+=`<label class="field"><span>Whose hours are these?</span><input type="text" data-i="${i}" data-person value="${esc(u.personInput)}" placeholder="Employee name as it appears in Time Doctor"><small>This report has no name in it, so you confirm the person.</small></label>`;
+      const who=S.person||(p.kind==='activity'?p.summary.name:u.personInput.trim());
+      h+=`<label class="check"><input type="checkbox" data-i="${i}" data-confirm="person" ${u.confirms.person?'checked':''} ${who?'':'disabled'}> This report is for ${who?'<b>'+esc(who)+'</b>':'the person named above'}</label>`;
+    }
+  }
+  return h+'</div>';
+}
+async function applyUploads(){
+  // daily reports first so summaries reconcile against fresh totals
+  const order=ui.uploads.map((u,i)=>i).filter(i=>ui.uploads[i].ready&&!ui.uploads[i].applied).sort((a,b)=>(ui.uploads[a].parsed&&ui.uploads[a].parsed.kind==='activity'?1:0)-(ui.uploads[b].parsed&&ui.uploads[b].parsed.kind==='activity'?1:0));
+  for(const i of order){
+    const u=ui.uploads[i];
+    if(u.backup){const nb=JSON.parse(JSON.stringify(u.backup));nb.batches.unshift({id:'r'+Date.now(),type:'restore',file:u.name,at:meta().at,by:'you',detail:Object.keys(nb.days).length+' dates restored',undone:false});
+      if(await save(nb)){u.applied='Backup restored.';}continue}
+    let base=JSON.parse(JSON.stringify(S));
+    if(!base.person&&u.parsed.kind!=='activity')base.person=u.personInput.trim();
+    reparseOn(u,base); if(!u.plan){u.fatal='This file no longer applies cleanly. Close and upload it again.';continue}
+    const {state:next,batch}=TD.applyImport(base,u.plan,meta());
+    if(await save(next)){u.applied=u.parsed.kind==='activity'?`Activity Summary saved for ${fd(u.parsed.range.start)} – ${fd(u.parsed.range.end)}.`:`${batch.changes.length} date${batch.changes.length===1?'':'s'} saved, ${batch.unchanged} unchanged. You can undo this under Imports.`}
+    else break;
+  }
+  for(const u of ui.uploads)if(!u.applied&&!u.fatal&&!u.backup&&u.text)reparse(u);
+  renderUpload(); render();
+}
+function reparseOn(u,base){u.parsed=TD.parseReport(u.text,u.name,u.range);u.plan=(!u.parsed.errors.length&&!u.parsed.needRange)?TD.planImport(base,u.parsed,u.hash):null}
+
+/* ---------------- exports ---------------- */
+async function download(filename,data){
+  let dl=null;try{dl=window.claude&&typeof window.claude.use==='function'?await window.claude.use('downloads'):null}catch(e){}
+  if(!dl){ // standalone site (e.g. GitHub Pages): plain browser download
+    try{const url=URL.createObjectURL(new Blob([data],{type:filename.endsWith('.json')?'application/json':'text/csv'}));
+      const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+    catch(e){toast('This browser blocked the download.')}
+    return}
+  try{await dl.save({filename,data:new Blob([data],{type:filename.endsWith('.json')?'application/json':'text/csv'})})}catch(e){if(e&&e.code!=='declined')toast('Download failed: '+(e.message||e.code))}
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act],[data-tab]'); if(!b)return;
+  if(b.dataset.tab){ui.tab=b.dataset.tab;render();return}
+  const a=b.dataset.act, c=()=>calc();
+  if(a==='prev'||a==='next'){ui.key=TD.shiftPeriod(curKey(),a==='prev'?-1:1);ui.asOf=null;render()}
+  else if(a==='current'){ui.key=null;ui.asOf=null;render()}
+  else if(a==='upload'){openUpload()}
+  else if(a==='pick'){$('#fileIn').click()}
+  else if(a==='closeUp'){$('#dlgUp').close();if(ui.uploads.every(u=>u.applied||u.fatal))ui.uploads=[]}
+  else if(a==='setRange'){const i=+b.dataset.i,s=$('#rs'+i).value,en=$('#re'+i).value;if(!TD.isValidISO(s)||!TD.isValidISO(en)||s>en){toast('Enter a start date on or before the end date.');return}ui.uploads[i].range={start:s,end:en};reparse(ui.uploads[i]);renderUpload()}
+  else if(a==='applyAll'){b.disabled=true;await applyUploads()}
+  else if(a==='edit'){openDay(b.dataset.date)}
+  else if(a==='leave'){openLeave()}
+  else if(a==='saveLeave'){await saveLeave()}
+  else if(a==='tabOff'){ui.tab='off';render();document.querySelector('.tabs').scrollIntoView({behavior:'smooth'})}
+  else if(a==='rmLeave'){const d=b.dataset.date;await save(TD.applyManual(S,d,{kind:null,leaveSec:null,reason:null},meta()),`Day off removed from ${fd(d)}.`)}
+  else if(a==='hRemove'){const d=b.dataset.date;await saveHolidays(h=>{if(!h.removed.includes(d))h.removed.push(d)},`${fd(d)} is a normal workday again.`,'Removed '+d)}
+  else if(a==='hRestore'){const d=b.dataset.date;await saveHolidays(h=>{h.removed=h.removed.filter(x=>x!==d)},`${fd(d)} restored as a holiday.`,'Restored '+d)}
+  else if(a==='hDel'){const d=b.dataset.date;await saveHolidays(h=>{h.added=h.added.filter(x=>x.date!==d)},`Holiday on ${fd(d)} deleted.`,'Deleted '+d)}
+  else if(a==='hMove'){const d=b.dataset.date;const h=TD.holidayFor(d,S.settings);$('#hMoveBox').innerHTML=`<div class="callout"><b>Move ${esc(h?h.name:'holiday')}</b> from ${fdw(d)} to the announced date:<div class="row" style="margin-top:6px"><label class="field"><span>New date</span><input type="date" id="hMoveTo" value="${d}"></label><button class="btn primary" data-act="hMoveSave" data-date="${d}">Move holiday</button></div></div>`}
+  else if(a==='hMoveSave'){const d=b.dataset.date,to=$('#hMoveTo').value;const h=TD.holidayFor(d,S.settings);if(!TD.isValidISO(to)||to===d){toast('Pick a different date.');return}
+    if(TD.holidayFor(to,S.settings)){toast(`${fd(to)} is already a holiday.`);return}
+    await saveHolidays(x=>{if(!x.removed.includes(d))x.removed.push(d);x.added.push({date:to,name:(h?h.name.replace(/ \(moved from [^)]*\)$/,''):'Holiday')+` (moved from ${fd(d)})`})},`Moved to ${fdw(to)}.`,`Moved ${d} to ${to}`)}
+  else if(a==='hAdd'){const d=$('#hDate').value,nm=$('#hName').value.trim();if(!TD.isValidISO(d)||!nm){toast('Enter a date and a name.');return}
+    if(TD.holidayFor(d,S.settings)){toast(`${fd(d)} is already a holiday.`);return}
+    await saveHolidays(x=>{x.added.push({date:d,name:nm})},`${nm} added on ${fd(d)}.`,`Added ${d}`)}
+  else if(a==='closeDay'){$('#dlgDay').close()}
+  else if(a==='saveDay'){await saveDay(b.dataset.date)}
+  else if(a==='filter'){ui.filter=b.dataset.f;ui.tab='days';render();if(e.target.closest('.m'))document.querySelector('.tabs').scrollIntoView({behavior:'smooth'})}
+  else if(a==='toggleTable'){ui.showTable=!ui.showTable;render()}
+  else if(a==='undo'){const bt=S.batches.find(x=>x.id===b.dataset.id);if(!bt)return;
+    if(bt.type==='leave'){const r=TD.undoLeave(S,bt.id);await save(r.state,`Day off removed from ${r.restored} date${r.restored===1?'':'s'}${r.skipped.length?`; ${r.skipped.length} kept because they were edited later`:''}.`);return}
+    if(bt.type==='manual'){const r=TD.undoManual(S,bt.id);if(!r.ok){toast(r.reason||'Could not undo.');return}await save(r.state,'Edit undone.')}
+    else{const r=TD.undoBatch(S,bt.id);await save(r.state,`Undone. ${r.restored} restored${r.skipped.length?`, ${r.skipped.length} kept because they were edited later`:''}.`)}}
+  else if(a==='saveBasic'){const n=JSON.parse(JSON.stringify(S));n.person=$('#sPerson').value.trim();const tz=$('#sTz').value.trim();
+    try{new Intl.DateTimeFormat('en',{timeZone:tz})}catch(err){toast(`"${tz}" is not a time zone.`);return}
+    n.settings.tz=tz;const t=parseFloat($('#sTarget').value);n.settings.planningTargetSec=t>0?Math.round(t*3600):null;await save(n,'Settings saved.')}
+  else if(a==='saveSched'){const wd=[...document.querySelectorAll('input[name=wd]:checked')].map(x=>+x.value);const hrs=parseFloat($('#sDaily').value);const from=$('#sFrom').value;
+    if(!wd.length||!(hrs>0&&hrs<=24)||!TD.isValidISO(from)){toast('Pick at least one workday, hours between 0 and 24, and a start date.');return}
+    const curStart=TD.periodByKey(TD.periodKeyFor(today())).start;if(from<curStart&&!$('#sHist').checked){toast('That date is in a closed period. Tick the box to allow recalculating it.');return}
+    const n=JSON.parse(JSON.stringify(S));n.settings.schedules=n.settings.schedules.filter(v=>v.from!==from);n.settings.schedules.push({from,workdays:wd.sort(),dailySec:Math.round(hrs*3600)});
+    n.batches.unshift({id:'s'+Date.now(),type:'settings',file:'Work schedule',at:meta().at,by:'you',range:{start:from,end:from},detail:`${wd.map(x=>WDS[x]).join(', ')}, ${hrs}h from ${from}${from<curStart?' (recalculates closed periods)':''}`,undone:false});await save(n,'Schedule saved.')}
+  else if(a==='savePolicy'){const m=(document.querySelector('input[name=sMeth]:checked')||{}).value||'period';const pct=parseFloat($('#sIdle').value);const from=$('#sPFrom').value;
+    if(!(pct>=0&&pct<=100)||!TD.isValidISO(from)){toast('Enter an idle % between 0 and 100 and a start date.');return}
+    const curStart=TD.periodByKey(TD.periodKeyFor(today())).start;if(from<curStart&&!$('#sHist').checked){toast('That date is in a closed period. Tick "Allow this change to recalculate closed periods" under Work schedule first.');return}
+    const n=JSON.parse(JSON.stringify(S));n.settings.policies=n.settings.policies.filter(v=>v.from!==from);n.settings.policies.push({from,idlePct:pct,shortfallMethod:m,partialLeave:true});
+    n.batches.unshift({id:'p'+Date.now(),type:'settings',file:'HR policy rules',at:meta().at,by:'you',range:{start:from,end:from},detail:`${m==='daily'?'Day by day':'Monthly total'}, idle ${pct}%`,undone:false});await save(n,'Policy rules saved.')}
+  else if(a==='exportCsv'){const cc=c();await download(`payroll-${cc.P.key}-as-of-${cc.asOf}.csv`,TD.exportCSV(cc,S))}
+  else if(a==='exportJson'){await download(`payroll-ledger-backup-${today()}.json`,JSON.stringify(S,null,1))}
+  else if(a==='wipe'){if(!$('#sWipe').checked){toast('Tick the confirmation box first.');return}await save(TD.defaultState(),'All data deleted.')}
+  else if(a==='migrate'){const n=localPending;localPending=null;if(await save(n,'Moved to your account.'))try{localStorage.removeItem(LS_KEY)}catch(err){}}
+  else if(a==='dismissMigrate'){localPending=null;render()}
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id==='asof'){ui.asOf=TD.isValidISO(e.target.value)?e.target.value:null;render()}
+  if(e.target.id==='hCountry'){const v=e.target.value;await saveHolidays(h=>{h.country=v},v==='EG'?'Egypt holidays applied.':'Holiday calendar turned off.','Calendar '+v);return}
+  if(e.target.id==='incToday'){const n=JSON.parse(JSON.stringify(S));n.settings.includeToday=e.target.checked;await save(n)}
+  if(e.target.id==='fileIn'){await addFiles(e.target.files);e.target.value='';if(!$('#dlgUp').open)openUpload()}
+});
+let dragN=0;
+window.addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')&&!$('#dlgUp').open){dragN++;$('#dropall').style.display='grid'}});
+window.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('#dropall').style.display='none'});
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',async e=>{e.preventDefault();dragN=0;$('#dropall').style.display='none';if($('#dlgUp').open)return;if(e.dataTransfer.files.length){await addFiles(e.dataTransfer.files);openUpload()}});
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(mode!=='loading')bindChart(calc())},150)});
+$('#dlgDay').addEventListener('close',()=>{ui.sel=null;render()});
+boot();
+})();
+</script>
+</body>
+</html>

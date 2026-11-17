@@ -1,0 +1,8 @@
+# Never commit real Time Doctor exports or ledger backups.
+*.csv
+*.json
+!package.json
+!test/fixtures/*.csv
+dist/
+node_modules/
+.DS_Store
