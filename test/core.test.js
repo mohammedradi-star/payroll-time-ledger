@@ -137,4 +137,36 @@ eq(ch2.schedSec, base.schedSec - 14400, 'half day reduces schedule 4h'); eq(ch2.
 eq(cpt.leftDates.map(x => x.date), ['2026-11-18', '2026-11-19'], 'left dates today+Thu');
 eq(cpt.leftDates[0].today, true, 'today flagged'); eq(cpt.leftDates[0].done, 3 * 3600, 'today done so far');
 eq(T.computePeriod(st, '2026-11', null, '2026-11-25').leftDates.length, 0, 'closed: none left');
-console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
+// password lock: encryption of the browser-saved ledger (async, so it runs last)
+(async () => {
+  if (!globalThis.crypto || !globalThis.crypto.subtle) globalThis.crypto = require('crypto').webcrypto;
+  const ITER = 2000; // low iteration count keeps the tests fast; the app uses T's default
+  const lock = await T.newLock('correct horse', ITER);
+  const env = await T.sealJSON(st, lock);
+  ok(T.isEncrypted(env), 'envelope recognised'); ok(!T.isEncrypted(st), 'plain state is not an envelope');
+  eq([env.format, env.kdf, env.iter], [T.ENC_FORMAT, 'PBKDF2-SHA256', ITER], 'envelope header');
+  const envText = JSON.stringify(env);
+  ok(!envText.includes('Employee') && !envText.includes('2026-10-21') && !envText.includes('days'), 'no plaintext in envelope');
+  const opened = await T.openJSON(env, 'correct horse');
+  eq(opened.data, JSON.parse(JSON.stringify(st)), 'round trip with password');
+  eq(await T.openWithLock(env, opened.lock), JSON.parse(JSON.stringify(st)), 'round trip with recovered key');
+  eq(await T.openWithLock(env, lock), JSON.parse(JSON.stringify(st)), 'round trip with original key');
+  const env2 = await T.sealJSON(st, lock);
+  ok(env2.iv !== env.iv && env2.ct !== env.ct && env2.salt === env.salt, 'fresh IV per save, same salt');
+  const code = async f => { try { await f(); return 'none'; } catch (e) { return e.code || e.message; } };
+  eq(await code(() => T.openJSON(env, 'wrong horse')), 'WRONG_PASSWORD', 'wrong password rejected');
+  eq(await code(() => T.openJSON(env, '')), 'WRONG_PASSWORD', 'empty password rejected');
+  const other = await T.newLock('correct horse', ITER);
+  eq(await code(() => T.openWithLock(env, other)), 'WRONG_PASSWORD', 'same password, different salt key rejected');
+  const ct = Buffer.from(env.ct, 'base64'); ct[5] ^= 1;
+  eq(await code(() => T.openJSON({ ...env, ct: ct.toString('base64') }, 'correct horse')), 'WRONG_PASSWORD', 'tampered data rejected');
+  ok((await code(() => T.openJSON({ ...env, iter: 10 }, 'correct horse'))).includes('unsupported'), 'too few iterations refused');
+  ok((await code(() => T.openJSON({ ...env, iter: 1e9 }, 'correct horse'))).includes('unsupported'), 'too many iterations refused');
+  ok((await code(() => T.openJSON(st, 'correct horse'))).includes('not an encrypted'), 'plain state refused by openJSON');
+  eq(T.passwordProblem('short'), `Use at least ${T.MIN_PASSWORD} characters.`, 'short password');
+  eq(T.passwordProblem('longenough', 'longenougH'), 'The two passwords do not match.', 'mismatch');
+  eq(T.passwordProblem('longenough', 'longenough'), null, 'valid password');
+  const big = await T.sealJSON({ blob: 'x'.repeat(200000) }, lock);
+  eq((await T.openWithLock(big, lock)).blob.length, 200000, 'large ledger round trip');
+  console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
+})().catch(e => { console.log('FAIL: password lock tests threw', e); process.exit(1); });
