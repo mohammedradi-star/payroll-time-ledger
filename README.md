@@ -56,6 +56,8 @@ npm start       # build and serve locally
 The workflow in `.github/workflows/pages.yml` runs the tests, builds, and deploys on every push to `main`.
 One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
+The site is also deployed on Vercel at https://timedoctor.muhammedradi.me (settings in `vercel.json`; Vercel runs the tests and the build on every push to `main`).
+
 Visibility: GitHub Pages sites are public on free plans, even from a private repository (Enterprise plans can restrict access). Your data still stays in your own browser, encrypted, but anyone with the link can open the empty dashboard and its lock screen.
 
 ## Updating holidays
