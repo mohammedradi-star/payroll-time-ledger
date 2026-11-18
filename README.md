@@ -49,6 +49,7 @@ npm start       # build and serve locally
 
 - `src/core.js` – pure calculation, CSV import, holiday and leave engine (no DOM)
 - `src/ui.html` – the dashboard; `build.mjs` inlines the engine into `dist/index.html`
+- `public/` – tab icons (the official Azeer mark, unchanged) and the link-preview image; copied into `dist/` by the build
 - `test/fixtures/` – **synthetic** reports only. Never add real exports; `.gitignore` blocks other CSV and JSON files.
 
 ## Deploying with GitHub Pages
